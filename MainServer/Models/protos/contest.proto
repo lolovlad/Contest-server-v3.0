@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+message GetReportTotalRequest{
+  int64 id_contest = 1;
+}
+
+message GetReportTotalResponse{
+  bytes result = 1;
+}
+
+
+service ContestApi{
+  rpc GetReportTotal(GetReportTotalRequest) returns (GetReportTotalResponse){}
+}

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+message SettingsTests{
+  string limitation_variable = 1;
+  string necessary_test = 2;
+  string check_type = 3;
+}
+
+message Tests{
+  int32 score = 1;
+  bytes filling_type_variable = 2;
+  bytes answer = 3;
+}
+
+
+message ChunkTests{
+  SettingsTests setting_tests = 1;
+  repeated Tests tests = 2;
+}
+
+message GetAllSettingsTestsRequest{
+  int64 id = 1;
+}
+
+message GetAllSettingsTestsResponse{
+  repeated SettingsTests settings = 1;
+}
+
+message GetChunkTestRequest{
+  int64 id = 1;
+  string type_test = 2;
+  int32 index = 3;
+}
+
+
+service JsonTestApi{
+  rpc GetAllSettingsTests(GetAllSettingsTestsRequest) returns (GetAllSettingsTestsResponse){}
+  rpc GetChunkTest(GetChunkTestRequest) returns (ChunkTests){}
+}

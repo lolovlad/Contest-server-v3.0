@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+message StringResponse{
+  string code = 1;
+}
+
+message MetaData {
+  string name = 1;
+  string extend = 2;
+  int64 id_task = 3;
+}
+
+message FileData{
+  bytes byte_chunk = 1;
+}
+
+message UploadFileRequest{
+  oneof request {
+    MetaData metadata = 1;
+    FileData file = 2;
+  }
+}
+
+service FileApi{
+  rpc UploadFile(stream UploadFileRequest) returns (StringResponse){}
+  rpc DeleteFile(MetaData) returns (StringResponse){}
+}

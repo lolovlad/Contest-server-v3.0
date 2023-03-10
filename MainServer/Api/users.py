@@ -1,0 +1,66 @@
+from fastapi import APIRouter, Depends, Response, status
+from typing import List
+
+from ..Models.User import UserGet, UserPost, UserUpdate, UserGetInTeam, TypeUser
+from ..Models.Message import StatusUser
+from ..Services.LoginServices import get_current_user
+from ..Services.UsersServices import UsersServices
+
+router = APIRouter(prefix='/users')
+
+
+@router.get('/', response_model=List[UserGet])
+def get_users(type_user: str | None = None, user_services: UsersServices = Depends()):
+    return user_services.get_list_user(type_user)
+
+
+@router.get("/{id_user}", response_model=UserGet)
+def get_user(id_user: int, user_services: UsersServices = Depends()):
+    return user_services.get_user_id(id_user)
+
+
+@router.get('/status/{id_contest}/{id_user}', response_model=StatusUser)
+def get_status_user(id_contest: int, id_user: int, user_services: UsersServices = Depends(),
+                    user: UserGet = Depends(get_current_user)):
+    return user_services.status_user(id_contest, user.id)
+
+
+@router.post('/', response_model=UserGet)
+def post_user(user_services: UsersServices = Depends(),
+              user: UserPost = None,
+              user_data: UserGet = Depends(get_current_user)):
+    if user_data.type == TypeUser.ADMIN:
+        return user_services.add_user(user)
+
+
+'''@router.post('/', response_model=UserGet)
+def post_user(user_services: UsersServices = Depends(),
+              user: UserPost = None):
+    return user_services.add_user(user)'''
+
+
+@router.put('/', response_model=UserGet)
+def put_user(user_data: UserUpdate,
+             user_services: UsersServices = Depends(),
+             user: UserGet = Depends(get_current_user)):
+    if user.type == TypeUser.ADMIN:
+        return user_services.update_user(user_data.id, user_data)
+
+
+@router.delete('/{user_id}', response_model=UserGet)
+def delete_user(user_id: int,
+                user_services: UsersServices = Depends(),
+                user: UserGet = Depends(get_current_user)):
+    if user.type == TypeUser.ADMIN:
+        return user_services.delete_user(user_id)
+
+
+@router.get("/in_team/{id_team}", response_model=List[UserGet])
+def get_in_team_users(id_team: int, user_services: UsersServices = Depends()):
+    return user_services.get_list_in_team_user(id_team)
+
+
+@router.get("/in_contest/{id_contest}", response_model=dict)
+def get_in_contest_users(id_contest: int, user_services: UsersServices = Depends()):
+    return user_services.get_list_in_contest_user(id_contest)
+
