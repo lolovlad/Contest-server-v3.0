@@ -170,14 +170,14 @@ class ContestsServices:
                     name_contest=contest.name_contest,
                     type_contest=contest.type,
                     name=name,
-                    total={str(entity.id): {"points": 0} for entity in contest.tasks},
+                    total={str(entity.id): 0 for entity in contest.tasks},
                     sum_point=0
                 ))
             else:
                 target_res = result[str(id_entity[0])]
                 for task in contest.tasks:
                     if str(task.id) not in target_res["total"]:
-                        target_res["total"][str(task.id)] = {"points": 0}
+                        target_res["total"][str(task.id)] = 0
                 target_res["name_contest"] = contest.name_contest
                 target_res["name"] = name
                 reports.append(ReportTotal(**target_res))

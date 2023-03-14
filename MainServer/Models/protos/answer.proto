@@ -40,6 +40,7 @@ message GetListAnswersTaskResponse{
 
 message GetAnswersContestRequest{
   int64 id_contest = 1;
+  int64 id = 2;
 }
 
 message GetAnswersContestResponse{
@@ -55,7 +56,7 @@ message GetReportFileResponse{
 }
 
 service AnswerApi{
-  rpc SendAnswer(SendAnswerRequest) returns (SendAnswerCodeResponse){}
+  rpc SendAnswer(SendAnswerRequest) returns (stream SendAnswerCodeResponse){}
   rpc GetListAnswersTask(GetListAnswersTaskRequest) returns (GetListAnswersTaskResponse){}
   rpc GetAnswersContest(GetAnswersContestRequest) returns (GetAnswersContestResponse){}
   rpc GetReportFile(GetReportFileRequest) returns (GetReportFileResponse){}

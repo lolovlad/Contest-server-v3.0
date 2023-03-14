@@ -29,7 +29,7 @@ class TaskView(BaseModel):
     id: int
     name: str
     type_task: str
-    last_answer: str = 0
+    last_answer: str = "-"
 
 
 class GetListTask(BaseModel):

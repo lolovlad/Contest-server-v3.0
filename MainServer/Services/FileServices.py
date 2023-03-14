@@ -22,7 +22,6 @@ class FileServices:
         extension = split_data[1][1:]
 
         metadata = file_pb2.MetaData(name=filename, extend=extension, id_task=id_task)
-        print(filename, extension)
         yield file_pb2.UploadFileRequest(metadata=metadata)
         while True:
             chunk = file.file.read(self.__chunk_size)
