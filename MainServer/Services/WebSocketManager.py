@@ -154,12 +154,15 @@ class MainViewContestService:
             )
             call = sub.SendAnswer(request)
             async for info in call:
-                print("request_answer", info)
                 message = BaseMessage(
                     message=TypeMessage.POTS_ANSWER,
                     body_message={"code": info.code}
                 )
                 yield message.json()
+            yield BaseMessage(
+                    message=TypeMessage.GET_LIST_TASK,
+                    body_message={"code": info.code}
+                ).json()
 
     async def get_list_answers(self, id_task: int, id_contest: int, id_user: int) -> BaseMessage:
         contest = self.__contest_services.get_contest(id_contest)
