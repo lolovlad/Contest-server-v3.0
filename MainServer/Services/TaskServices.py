@@ -142,10 +142,14 @@ class TaskServices:
 
     async def upload_json_file(self, id_task: int, file: UploadFile):
         name_json = PathExtend.create_file_name("json", start_name_file=f"task_test_{id_task}")
-        async with grpc.insecure_channel(self.__ip_review) as channel:
+        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
             stub = file_pb2_grpc.FileApiStub(channel)
             file.filename = name_json
-            response = await stub.UploadFile(read_iterfile(file, id_task))
+            call = stub.UploadFile()
+            async for request in read_iterfile(file, id_task):
+                await call.write(request)
+            await call.done_writing()
+            response = await call
             return response.code
 
     async def delete_folder(self, id_task: int):

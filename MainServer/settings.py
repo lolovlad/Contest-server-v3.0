@@ -2,14 +2,14 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    server_host: str = "192.168.174.6"
-    server_port: int = 8000
+    server_host: str
+    server_port: int
 
     server_review_host: str
     server_review_port: int
 
-    database_name: str = "admin:admin@localhost/contest"
-    static_path: str = "Files"
+    database_name: str
+    static_path: str
 
     jwt_secret: str
     jwt_algorithm: str = "HS256"

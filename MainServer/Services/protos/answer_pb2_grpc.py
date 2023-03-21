@@ -14,7 +14,7 @@ class AnswerApiStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SendAnswer = channel.unary_unary(
+        self.SendAnswer = channel.unary_stream(
                 '/AnswerApi/SendAnswer',
                 request_serializer=MainServer_dot_Models_dot_protos_dot_answer__pb2.SendAnswerRequest.SerializeToString,
                 response_deserializer=MainServer_dot_Models_dot_protos_dot_answer__pb2.SendAnswerCodeResponse.FromString,
@@ -66,7 +66,7 @@ class AnswerApiServicer(object):
 
 def add_AnswerApiServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SendAnswer': grpc.unary_unary_rpc_method_handler(
+            'SendAnswer': grpc.unary_stream_rpc_method_handler(
                     servicer.SendAnswer,
                     request_deserializer=MainServer_dot_Models_dot_protos_dot_answer__pb2.SendAnswerRequest.FromString,
                     response_serializer=MainServer_dot_Models_dot_protos_dot_answer__pb2.SendAnswerCodeResponse.SerializeToString,
@@ -107,7 +107,7 @@ class AnswerApi(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/AnswerApi/SendAnswer',
+        return grpc.experimental.unary_stream(request, target, '/AnswerApi/SendAnswer',
             MainServer_dot_Models_dot_protos_dot_answer__pb2.SendAnswerRequest.SerializeToString,
             MainServer_dot_Models_dot_protos_dot_answer__pb2.SendAnswerCodeResponse.FromString,
             options, channel_credentials,

@@ -38,7 +38,7 @@ class MainViewContestService:
             return reg.id_team
         return 0
 
-    async def get_contest(self, id_contest: int) -> str:
+    async def get_contest(self, id_contest: int) -> BaseMessage:
         contest = self.__contest_services.get_contest(id_contest)
         async with grpc.aio.insecure_channel(self.__ip_review) as channel:
             sub = compiler_pb2_grpc.CompilerApiStub(channel)
@@ -55,26 +55,36 @@ class MainViewContestService:
                 "id": compiler.id,
             })
 
-        print(contest)
-
         message = BaseMessage(
             message=TypeMessage.GET_CONTEST,
             body_message=contest
         )
-        return message.json()
+        return message
 
-    def get_list_task(self, id_contest: int) -> str:
+    async def get_list_task(self, id_contest: int, id_user: int) -> BaseMessage:
+        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
+            sub = answer_pb2_grpc.AnswerApiStub(channel)
+            response = await sub.GetAnswersContest(answer_pb2.GetAnswersContestRequest(id_contest=id_contest,
+                                                                                       id=id_user))
+        answers = {entity.id_task: (entity.total, entity.points) for entity in response.answers}
         tasks = self.__session.query(Task).filter(Task.id_contest == id_contest).all()
         data = GetListTask(list_task=[])
         for task in tasks:
+            last_ans = "-"
+            if task.id in answers:
+                if answers[task.id][0] == "OK":
+                    last_ans = str(answers[task.id][1])
+                else:
+                    last_ans = str(answers[task.id][0])
             data.list_task.append(TaskView(id=task.id,
                                            name=task.name_task,
-                                           type_task=task.type_task))
+                                           type_task=task.type_task,
+                                           last_answer=last_ans))
         message = BaseMessage(
             message=TypeMessage.GET_LIST_TASK,
             body_message=data.dict()
         )
-        return message.json()
+        return message
 
     async def get_task(self, id_task: int):
         task_data = self.__session.query(Task).filter(Task.id == id_task).first()
@@ -128,7 +138,7 @@ class MainViewContestService:
             message=TypeMessage.GET_SELECT_TASK,
             body_message=merge
         )
-        return message.json()
+        return message
 
     async def post_answer(self, body_message: dict):
         async with grpc.aio.insecure_channel(self.__ip_review) as channel:
@@ -142,16 +152,16 @@ class MainViewContestService:
                 id_compiler=body_message["id_compiler"],
                 program_file=body_message["program_file"].encode(),
             )
-            response = await sub.SendAnswer(request)
-        message = BaseMessage(
-            message=TypeMessage.POTS_ANSWER,
-            body_message={"code": response.code}
-        )
-        return message.json()
+            call = sub.SendAnswer(request)
+            async for info in call:
+                print("request_answer", info)
+                message = BaseMessage(
+                    message=TypeMessage.POTS_ANSWER,
+                    body_message={"code": info.code}
+                )
+                yield message.json()
 
-    async def get_list_answers(self, id_task: int, id_contest: int, token: str):
-        user = get_current_user(token)
-
+    async def get_list_answers(self, id_task: int, id_contest: int, id_user: int) -> BaseMessage:
         contest = self.__contest_services.get_contest(id_contest)
 
         type_contest = "solo" if contest.type == TypeContest.OLIMPIADA else "team"
@@ -159,10 +169,10 @@ class MainViewContestService:
         id_search = 0
         if type_contest == "team":
             id_search = self.__session.query(ContestRegistration)\
-                .filter(ContestRegistration.id_user == user.id)\
+                .filter(ContestRegistration.id_user == id_user)\
                 .filter(ContestRegistration.id_contest == id_contest).first().id_team
         else:
-            id_search = user.id
+            id_search = id_user
 
         async with grpc.aio.insecure_channel(self.__ip_review) as channel:
             sub = answer_pb2_grpc.AnswerApiStub(channel)
@@ -171,28 +181,28 @@ class MainViewContestService:
                 type_contest=type_contest,
                 id=id_search
             ))
-        list_answer = []
-        for answer in response.answers:
-            user = self.__user_services.get_user_id(answer.id_user)
+            list_answer = []
+            for answer in response.answers:
+                user = self.__user_services.get_user_id(answer.id_user)
 
-            task = self.__session.query(Task).filter(Task.id == answer.id_task).first()
-            list_answer.append({
-                "date_send": answer.date_send,
-                "id": answer.id,
-                "name_user": f"{user.sename} {user.name[0]}. {user.secondname[0]}.",
-                "name_task": task.name_task,
-                "name_compilation": answer.name_compilation,
-                "total": answer.total,
-                "time": answer.time,
-                "memory_size": answer.memory_size,
-                "number_test": answer.number_test,
-                "points": answer.points,
-            })
-        message = BaseMessage(
-            message=TypeMessage.GET_LIST_ANSWER,
-            body_message={"list": list_answer}
-        )
-        return message.json()
+                task = self.__session.query(Task).filter(Task.id == answer.id_task).first()
+                list_answer.append({
+                    "date_send": answer.date_send,
+                    "id": answer.id,
+                    "name_user": f"{user.sename} {user.name[0]}. {user.secondname[0]}.",
+                    "name_task": task.name_task,
+                    "name_compilation": answer.name_compilation,
+                    "total": answer.total,
+                    "time": answer.time,
+                    "memory_size": answer.memory_size,
+                    "number_test": answer.number_test,
+                    "points": answer.points,
+                })
+            message = BaseMessage(
+                message=TypeMessage.GET_LIST_ANSWER,
+                body_message={"list": list_answer}
+            )
+            return message
 
     async def get_report(self, id_answer: int):
         async with grpc.aio.insecure_channel(self.__ip_review) as channel:
@@ -204,7 +214,7 @@ class MainViewContestService:
             message=TypeMessage.GET_REPORT,
             body_message={"report": loads(response.report_file.decode())}
         )
-        return message.json()
+        return message
 
     async def close_contest(self, id_user: int, id_contest: int):
         contest = self.__session.query(ContestRegistration).filter(ContestRegistration.id_contest == id_contest)\
@@ -233,30 +243,9 @@ class ConnectionManager:
 
     async def receive(self, message: dict, websocket: WebSocket):
         message = BaseMessage(**message)
-        if message.message == TypeMessage.GET_CONTEST:
-            data = await self.__service.get_contest(message.body_message["id"])
-            await self.__send_personal_message(data, websocket)
-        if message.message == TypeMessage.GET_LIST_TASK:
-            data = self.__service.get_list_task(message.body_message["id"])
-            await self.__send_personal_message(data, websocket)
-        if message.message == TypeMessage.GET_SELECT_TASK:
-            data = await self.__service.get_task(message.body_message["id"])
-            await self.__send_personal_message(data, websocket)
         if message.message == TypeMessage.POTS_ANSWER:
-            data = await self.__service.post_answer(message.body_message)
-            await self.__send_personal_message(data, websocket)
-        if message.message == TypeMessage.GET_LIST_ANSWER:
-            body = message.body_message
-            data = await self.__service.get_list_answers(body["id_task"], body["id_contest"], body["token"]["access_token"])
-            await self.__send_personal_message(data, websocket)
-        if message.message == TypeMessage.GET_REPORT:
-            body = message.body_message
-            data = await self.__service.get_report(body["id_answer"])
-            await self.__send_personal_message(data, websocket)
-        if message.message == TypeMessage.CLOSER_CONTEST:
-            body = message.body_message
-            user = get_current_user(body["token"]["access_token"])
-            await self.__service.close_contest(user.id, body["id_contest"])
+            async for data in self.__service.post_answer(message.body_message):
+                await self.__send_personal_message(data, websocket)
 
     async def __send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_json(message)
