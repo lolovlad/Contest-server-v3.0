@@ -15,5 +15,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration: int = 3600 * 12
 
+    front_end_host: str
+    front_end_port: int
+
 
 settings = Settings(_env_file="settings_server.env", _env_file_encoding="utf-8")

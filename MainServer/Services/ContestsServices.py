@@ -43,9 +43,9 @@ class ContestsServices:
         contest_reg = ContestGet(id=contest.id,
                                  users=users,
                                  name_contest=contest.name_contest,
-                                 datetime_start=contest.datetime_start - self.__time_zone,
-                                 datetime_end=contest.datetime_end - self.__time_zone,
-                                 datetime_registration=contest.datetime_registration - self.__time_zone,
+                                 datetime_start=contest.datetime_start.isoformat(),
+                                 datetime_end=contest.datetime_end.isoformat(),
+                                 datetime_registration=contest.datetime_registration.isoformat(),
                                  type=contest.type,
                                  state_contest=contest.state_contest,
                                  tasks=[])

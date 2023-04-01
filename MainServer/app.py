@@ -7,9 +7,25 @@ from .database import Session
 
 from .tables import Contest
 from .Models.Contest import TypeState
+from .settings import settings
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 app.include_router(router)
+
+
+origins = [
+    f"http://{settings.front_end_host}:{settings.front_end_port}",
+    f"http://{settings.front_end_host}",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
