@@ -31,9 +31,17 @@ class User(base):
     last_datatime_sign = Column(DateTime, nullable=True)
     last_ip_sign = Column(String, nullable=True)
 
-    teams = relationship("TeamRegistration", back_populates="user", collection_class=list, cascade="all, delete", lazy="select")
-    contests = relationship("ContestRegistration", back_populates="user",
-                            collection_class=list, join_depth=2, lazy="select")
+    teams = relationship("TeamRegistration",
+                         back_populates="user",
+                         collection_class=list,
+                         cascade="all, delete",
+                         lazy="joined")
+
+    contests = relationship("ContestRegistration",
+                            back_populates="user",
+                            collection_class=list,
+                            join_depth=2,
+                            lazy="joined")
 
     @property
     def password(self):
@@ -107,8 +115,8 @@ class Contest(base):
     state_contest = Column(Integer, default=0)
 
     users = relationship("ContestRegistration", back_populates="contest",
-                         collection_class=list, join_depth=2, cascade="all, delete")
-    tasks = relationship('Task', backref='task', cascade="all, delete")
+                         collection_class=list, join_depth=2, cascade="all, delete", lazy="joined")
+    tasks = relationship('Task', backref='task', cascade="all, delete", lazy="joined")
 
 
 class Task(base):

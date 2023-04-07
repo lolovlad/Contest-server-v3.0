@@ -9,5 +9,6 @@ class BaseCompilations(BaseModel):
 
 class GetCompilations(BaseCompilations):
     id: int
+
     class Config:
-           orm_mode = True
+        orm_mode = True

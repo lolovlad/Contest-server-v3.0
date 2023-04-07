@@ -19,17 +19,26 @@ class SettingsTest(BaseModel):
     necessary_test: List[int]
     check_type: CheckType
 
+    class Config:
+        orm_mode = True
+
 
 class Test(BaseModel):
     score: int
     filling_type_variable: str
     answer: str
 
+    class Config:
+        orm_mode = True
+
 
 class ChunkTest(BaseModel):
     type_test: TypeTest
     settings_test: SettingsTest
     tests: List[Test]
+
+    class Config:
+        orm_mode = True
 
 
 class FileTaskTest(BaseModel):

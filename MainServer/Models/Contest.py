@@ -69,6 +69,21 @@ class ContestCardView(BaseContest):
     id: int
     is_view: bool
 
+
+class TotalContest(BaseModel):
+    name: int
+    total: dict
+    sum_point: int
+    name_contest: str = ""
+    type_contest: TypeContest
+
+
+class ResultContest(BaseModel):
+    name_contest: str = ""
+    type_contest: TypeContest = 1
+    count_user: int = 0,
+    count_task: int = 0,
+    users: List[dict] = []
 '''
 class ContestGetPage(BaseContest):
     id: int

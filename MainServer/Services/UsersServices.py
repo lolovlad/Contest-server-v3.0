@@ -4,18 +4,21 @@ from datetime import datetime
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from sqlalchemy.orm import lazyload
 
 from ..tables import User, TeamRegistration
-''', TeamRegistration, ContestRegistration'''
 from ..Models.User import UserPost, UserUpdate, UserBase, UserGetInTeam, TeamUser, TypeUser
 from ..Models.Message import StatusUser
 from ..database import get_session
 
+from ..Repositories.UserRepository import UserRepository
+
 
 class UsersServices:
-    def __init__(self, session: Session = Depends(get_session)):
+    def __init__(self,
+                 session: Session = Depends(get_session),
+                 user_repository: UserRepository = Depends()):
         self.__session: Session = session
+        self.__repo: UserRepository = user_repository
 
     def __get(self, id_user: int):
         user = self.__session.query(User).filter(User.id == id_user).first()
@@ -98,9 +101,7 @@ class UsersServices:
             "user_not_in_contest": users_not_reg
         }
 
-
-    def status_user(self, id_contest: int, id_user: int) -> StatusUser:
-        contest = self.__session.query(ContestRegistration).filter(ContestRegistration.id_contest == id_contest)\
-            .filter(ContestRegistration.id_user == id_user).first()
-        return StatusUser(**{"id_user": id_user, "status": contest.state_contest})
+    async def status_user(self, id_contest: int, id_user: int) -> StatusUser:
+        state = await self.__repo.state_user(id_contest, id_user)
+        return StatusUser(**{"id_user": id_user, "status": state})
 

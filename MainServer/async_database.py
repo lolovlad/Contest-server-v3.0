@@ -8,7 +8,7 @@ from .settings import settings
 DATABASE_URL = f"postgresql+asyncpg://{settings.database_name.strip()}"
 
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=False)
 Base = declarative_base()
 async_session = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False

@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from ..Models.Contest import ContestGet, ContestPost, ContestDelete, UserContest, \
-    ContestPutUsers, ContestUpdate, ContestCardView, TypeState, TypeContest
+    ContestPutUsers, ContestUpdate, ContestCardView, TypeState, TypeContest, ResultContest, TotalContest
 from ..Models.User import StateUser
 from ..Models.ReportTotal import ReportTotal
 from typing import List
@@ -18,12 +18,21 @@ from .TaskServices import TaskServices
 import grpc
 from .protos import contest_pb2, contest_pb2_grpc
 
+from ..Repositories import ContestsRepository, UserRepository, TeamRepository
+
 
 class ContestsServices:
-    def __init__(self, session: Session = Depends(get_session)):
+    def __init__(self,
+                 session: Session = Depends(get_session),
+                 contest_repo: ContestsRepository = Depends(),
+                 user_repo: UserRepository = Depends(),
+                 team_repo: TeamRepository = Depends()):
         self.__session: Session = session
         self.__time_zone = timedelta(hours=4)
         self.__ip_review = f'{settings.server_review_host}:{settings.server_review_port}'
+        self.__repo: ContestsRepository = contest_repo
+        self.__user_repo: UserRepository = user_repo
+        self.__team_repo: TeamRepository = team_repo
 
     def __get_by_id(self, id_contest: int) -> Contest:
         return self.__session.query(Contest).filter(Contest.id == id_contest).first()
@@ -139,46 +148,48 @@ class ContestsServices:
             ))
         return card_view
 
-    async def get_report_total(self, id_contest: int) -> List[ReportTotal]:
-        contest = self.__get_by_id(id_contest)
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = contest_pb2_grpc.ContestApiStub(channel)
-            request = contest_pb2.GetReportTotalRequest(id_contest=id_contest)
-            response = await sub.GetReportTotal(request)
+    async def get_report_total(self, id_contest: int) -> ResultContest:
+        contest = await self.__repo.get_contest(id_contest)
+
         if contest.type == TypeContest.OLIMPIADA:
-            set_id = self.__session.query(ContestRegistration.id_user).\
-                distinct(ContestRegistration.id_user).\
-                filter(ContestRegistration.id_contest == id_contest).all()
+            set_id = await self.__repo.set_id_users(id_contest)
 
         else:
-            set_id = self.__session.query(ContestRegistration.id_team).\
-                distinct(ContestRegistration.id_team).\
-                filter(ContestRegistration.id_contest == id_contest).all()
-        reports = []
-        result = loads(response.result.decode())
+            set_id = await self.__repo.set_id_team(id_contest)
+        reports = ResultContest()
+        result = await self.__repo.get_list_report_total(id_contest)
+
+        reports.name_contest = contest.name_contest
+        reports.type_contest = contest.type
+        reports.count_user = len(set_id)
+        reports.count_task = len(contest.tasks)
+
         for id_entity in set_id:
             name = ""
             if contest.type == TypeContest.OLIMPIADA:
-                user = self.__session.query(User).filter(User.id == id_entity[0]).first()
+                user = await self.__user_repo.get_user(id_entity)
                 name = f"{user.sename} {user.name[0]}. {user.secondname[0]}."
             else:
-                team = self.__session.query(Team).filter(Team.id == id_entity[0]).first()
+                team = await self.__team_repo.get_team(id_entity)
                 name = team.name_team
 
-            if str(id_entity[0]) not in result:
-                reports.append(ReportTotal(
-                    name_contest=contest.name_contest,
-                    type_contest=contest.type,
-                    name=name,
-                    total={str(entity.id): 0 for entity in contest.tasks},
-                    sum_point=0
-                ))
+            if str(id_entity) not in result:
+                reports.users.append({
+                    "name": name,
+                    "total": {str(entity.id): 0 for entity in contest.tasks},
+                    "sum_point": 0
+                })
             else:
-                target_res = result[str(id_entity[0])]
+                target_res: TotalContest = result[str(id_entity)]
                 for task in contest.tasks:
-                    if str(task.id) not in target_res["total"]:
-                        target_res["total"][str(task.id)] = 0
-                target_res["name_contest"] = contest.name_contest
-                target_res["name"] = name
-                reports.append(ReportTotal(**target_res))
+                    if str(task.id) not in target_res.total:
+                        target_res.total[str(task.id)] = 0
+                target_res.name = name
+                target_res_dict = target_res.dict()
+                target_res_dict.pop("name_contest")
+                target_res_dict.pop("type_contest")
+                reports.users.append(target_res_dict)
         return reports
+
+    async def update_state_user_contest(self, id_contest: int, id_user: int):
+        await self.__repo.update_user_state_contest(id_contest, id_user)

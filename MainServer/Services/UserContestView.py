@@ -1,92 +1,62 @@
 from fastapi import Depends, Form, File
-from ..Models.WebSocketMessages import BaseMessage, TypeMessage, TaskView, GetListTask
 
-from ..Models.Task import TaskGet, TaskSettings
+from ..Repositories import CompilationsRepository, \
+    AnswersRepository, \
+    TaskRepository, UserRepository, ContestsRepository, JsonTestRepository
+
+from ..Models.WebSocketMessages import BaseMessage, TypeMessage
+from ..Models.Task import TaskGet, TaskSettings, TaskViewUser, TaskAndTest
 from ..Models.Contest import TypeContest
+from ..Models.ContestView import ContestView
 
 from .LoginServices import get_current_user
-from .ContestsServices import ContestsServices
-from .UsersServices import UsersServices
 
-from sqlalchemy.orm.session import Session
-
-from ..database import get_session
-from ..tables import Task, ContestRegistration, Contest
-
-import grpc
-from MainServer.Services.protos import settings_pb2_grpc, settings_pb2, jsonTest_pb2_grpc, jsonTest_pb2, \
-    compiler_pb2_grpc, compiler_pb2, answer_pb2_grpc, answer_pb2
 from ..settings import settings
 
 from json import dumps, loads
+from typing import List
 
 
 class MainViewContestService:
-    def __init__(self, session: Session = Depends(get_session),
-                 contest_services: ContestsServices = Depends(),
-                 user_services: UsersServices = Depends()):
-        self.__session: Session = session
-        self.__contest_services: ContestsServices = contest_services
-        self.__user_services: UsersServices = user_services
-        self.__ip_review = f'{settings.server_review_host}:{settings.server_review_port}'
+    def __init__(self,
+                 contest_repository: ContestsRepository = Depends(),
+                 user_repository: UserRepository = Depends(),
+                 compilation_repository: CompilationsRepository = Depends(),
+                 answer_repository: AnswersRepository = Depends(),
+                 task_repository: TaskRepository = Depends(),
+                 json_test_repo: JsonTestRepository = Depends()):
+        self.__contest_repository: ContestsRepository = contest_repository
+        self.__user_repository: UserRepository = user_repository
+        self.__compilation_repository: CompilationsRepository = compilation_repository
+        self.__answer_repository: AnswersRepository = answer_repository
+        self.__task_repository: TaskRepository = task_repository
+        self.__json_test_repo: JsonTestRepository = json_test_repo
 
-    async def __get_team_user(self, id_user: int, id_contest: int):
-        reg = self.__session.query(ContestRegistration).filter(ContestRegistration.id_contest == id_contest)\
-            .filter(ContestRegistration.id_user == id_user).first()
-        if reg.id_team is not None:
-            return reg.id_team
-        return 0
+    async def get_contest(self, id_contest: int) -> ContestView:
+        contest = await self.__contest_repository.get_contest(id_contest)
+        compilations = await self.__compilation_repository.get_list()
 
-    async def get_contest(self, id_contest: int) -> BaseMessage:
-        contest = self.__contest_services.get_contest(id_contest)
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = compiler_pb2_grpc.CompilerApiStub(channel)
-            response = await sub.GetListCompiler(compiler_pb2.GetListCompilerRequest(count=1))
+        response = ContestView.from_orm(contest)
+        response.compiler = compilations
 
-        contest.users = []
-        contest = contest.dict()
+        return response
 
-        contest["compilers"] = []
+    async def get_list_task(self, id_contest: int, id_user: int) -> List[TaskViewUser]:
+        answers = await self.__answer_repository.get_list_answers(id_contest, id_user)
+        answers = {entity.id_task: (entity.total, entity.points) for entity in answers}
+        tasks = await self.__task_repository.get_list_task_view_by_id_contest(id_contest)
 
-        for compiler in response.compilers:
-            contest["compilers"].append({
-                "name": compiler.name,
-                "id": compiler.id,
-            })
-
-        message = BaseMessage(
-            message=TypeMessage.GET_CONTEST,
-            body_message=contest
-        )
-        return message
-
-    async def get_list_task(self, id_contest: int, id_user: int) -> BaseMessage:
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = answer_pb2_grpc.AnswerApiStub(channel)
-            response = await sub.GetAnswersContest(answer_pb2.GetAnswersContestRequest(id_contest=id_contest,
-                                                                                       id=id_user))
-        answers = {entity.id_task: (entity.total, entity.points) for entity in response.answers}
-        tasks = self.__session.query(Task).filter(Task.id_contest == id_contest).all()
-        data = GetListTask(list_task=[])
         for task in tasks:
-            last_ans = "-"
             if task.id in answers:
-                if answers[task.id][0] == "OK":
-                    last_ans = str(answers[task.id][1])
+                if answers[task.id][0] == "OK" or int(answers[task.id][1]) > 0:
+                    task.last_answer = str(answers[task.id][1])
                 else:
-                    last_ans = str(answers[task.id][0])
-            data.list_task.append(TaskView(id=task.id,
-                                           name=task.name_task,
-                                           type_task=task.type_task,
-                                           last_answer=last_ans))
-        message = BaseMessage(
-            message=TypeMessage.GET_LIST_TASK,
-            body_message=data.dict()
-        )
-        return message
+                    task.last_answer = str(answers[task.id][0])
 
-    async def get_task(self, id_task: int):
-        task_data = self.__session.query(Task).filter(Task.id == id_task).first()
+        return tasks
+
+    async def get_task(self, id_task: int) -> TaskAndTest:
+        task_data = await self.__task_repository.get(id_task)
         task = TaskGet(id=id_task,
                        id_contest=task_data.id_contest,
                        name_task=task_data.name_task,
@@ -94,50 +64,22 @@ class MainViewContestService:
                        description_input=task_data.description_input.decode(),
                        description_output=task_data.description_output.decode(),
                        type_task=task_data.type_task)
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = settings_pb2_grpc.SettingsApiStub(channel)
-            response_settings = await sub.SettingsGet(settings_pb2.GetSettingsRequest(id=id_task))
-            task_settings = TaskSettings(id=id_task,
-                                         time_work=response_settings.settings.time_work,
-                                         size_raw=response_settings.settings.size_raw,
-                                         number_shipments=response_settings.settings.number_shipments,
-                                         files=[])
-            task_settings.type_input = response_settings.settings.type_input
-            task_settings.type_output = response_settings.settings.type_output
 
-            sub = jsonTest_pb2_grpc.JsonTestApiStub(channel)
-            response_settings = await sub.GetAllSettingsTests(jsonTest_pb2.GetAllSettingsTestsRequest(id=id_task))
-            response_chunk = await sub.GetChunkTest(jsonTest_pb2.GetChunkTestRequest(id=id_task, type_test="test", index=0))
+        task_settings = await self.__task_repository.get_setting(id_task)
+
+        settings_test, chunk_test = await self.__json_test_repo.get_first_test(id_task)
 
         merge = task.dict()
         task_settings_dict = task_settings.dict()
         for key in task_settings_dict:
             merge[key] = task_settings_dict[key]
 
-        view_settings = []
-        for i in response_settings.settings:
-            view_settings.append({
-                "limitation_variable": i.limitation_variable,
-                "necessary_test": i.necessary_test,
-                "check_type": i.check_type
-            })
+        task_main = TaskAndTest(**merge)
 
-        view_test = []
-        for i in response_chunk.tests:
-            view_test.append({
-                "score": i.score,
-                "filling_type_variable": i.filling_type_variable,
-                "answer": i.answer
-            })
+        task_main.view_settings = settings_test
+        task_main.view_test = chunk_test
 
-        merge["view_settings"] = view_settings
-        merge["view_test"] = view_test
-
-        message = BaseMessage(
-            message=TypeMessage.GET_SELECT_TASK,
-            body_message=merge
-        )
-        return message
+        return task_main
 
     async def post_answer(self, body_message: dict):
         async with grpc.aio.insecure_channel(self.__ip_review) as channel:
@@ -159,7 +101,10 @@ class MainViewContestService:
                     body_message={"code": info.code}
                 )
                 yield message.json()
-
+            yield BaseMessage(
+                message=TypeMessage.GET_LIST_TASK,
+                body_message={"code": info.code}
+            ).json()
 
     async def get_list_answers(self, id_task: int, id_contest: int, id_user: int) -> BaseMessage:
         contest = self.__contest_services.get_contest(id_contest)

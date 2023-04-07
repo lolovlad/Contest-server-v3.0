@@ -1,7 +1,8 @@
-from ..Models.Contest import ContestGet, ContestPost, ContestDelete, ContestPutUsers, ContestUpdate, ContestCardView
+from ..Models.Contest import ContestGet, ContestPost, ContestDelete, ContestPutUsers, ContestUpdate, ContestCardView, ResultContest
 from ..Models.ReportTotal import ReportTotal
 #from ..Models.Menu import Menu
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, status
+from fastapi.responses import JSONResponse
 from typing import List
 
 from ..Models.User import UserGet, TypeUser
@@ -55,6 +56,15 @@ def registration_users_contest(contest_data: ContestPutUsers, contest_services: 
         return contest_services.add_users_contest(contest_data)
 
 
-@router.get("/report_total/{id_contest}", response_model=List[ReportTotal])
+@router.get("/report_total/{id_contest}", response_model=ResultContest)
 async def get_report_total(id_contest: int, contest_services: ContestsServices = Depends()):
     return await contest_services.get_report_total(id_contest)
+
+
+@router.put("/update_state_user_in_contest/{id_contest}", responses={status.HTTP_200_OK: {"message": "ok"}})
+async def update_state_user_in_contest(id_contest: int,
+                                       contest_services: ContestsServices = Depends(),
+                                       user: UserGet = Depends(get_current_user)):
+    await contest_services.update_state_user_contest(id_contest, user.id)
+    return JSONResponse(content={"message": "ok"},
+                        status_code=status.HTTP_200_OK)

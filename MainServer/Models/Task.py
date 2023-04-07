@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from typing import List
 from enum import Enum
 
+from .TaskTestSettings import Test, SettingsTest
+
 
 class TypeTask(int, Enum):
     A = 1
@@ -70,3 +72,19 @@ class TaskGetView(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class TaskViewUser(TaskGetView):
+    last_answer: str = "-"
+
+    class Config:
+        orm_mode = True
+
+
+class GetListTaskViewUser(BaseModel):
+    list_task: List[TaskViewUser]
+
+
+class TaskAndTest(TaskGet, TaskSettings):
+    view_settings: List[SettingsTest] = []
+    view_test: List[Test] = []

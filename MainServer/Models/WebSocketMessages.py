@@ -23,14 +23,3 @@ class User(BaseModel):
 class BaseMessage(BaseModel):
     message: TypeMessage
     body_message: dict
-
-
-class TaskView(BaseModel):
-    id: int
-    name: str
-    type_task: str
-    last_answer: str = "-"
-
-
-class GetListTask(BaseModel):
-    list_task: List[TaskView]

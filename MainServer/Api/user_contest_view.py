@@ -6,29 +6,31 @@ from ..Services.WebSocketManager import ConnectionManager
 from ..Services.WebSocketManager import MainViewContestService
 from ..Services.LoginServices import get_current_user
 
-from ..Models.WebSocketMessages import BaseMessage
+from ..Models.ContestView import ContestView
 from ..Models.User import UserGet
+from ..Models.Task import TaskViewUser, TaskAndTest
 
 from asyncio.queues import Queue
 from asyncio import gather
 import asyncio
+from typing import List
 
 router = APIRouter(prefix="/user_contest_view")
 
 
-@router.get("/get_contest/{id_contest}", response_model=BaseMessage)
+@router.get("/get_contest/{id_contest}", response_model=ContestView)
 async def get_contest(id_contest: int, services: MainViewContestService = Depends()):
     contest = await services.get_contest(id_contest)
     return contest
 
 
-@router.get("/get_list_task/{id_contest}", response_model=BaseMessage)
+@router.get("/get_list_task/{id_contest}", response_model=List[TaskViewUser])
 async def get_list_task(id_contest: int, user: UserGet = Depends(get_current_user), services: MainViewContestService = Depends()):
     list_task = await services.get_list_task(id_contest, user.id)
     return list_task
 
 
-@router.get("/get_task/{id_task}", response_model=BaseMessage)
+@router.get("/get_task/{id_task}", response_model=TaskAndTest)
 async def get_task(id_task: int, services: MainViewContestService = Depends()):
     task = await services.get_task(id_task)
     return task

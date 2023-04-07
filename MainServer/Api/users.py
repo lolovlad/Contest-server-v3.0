@@ -19,10 +19,10 @@ def get_user(id_user: int, user_services: UsersServices = Depends()):
     return user_services.get_user_id(id_user)
 
 
-@router.get('/status/{id_contest}/{id_user}', response_model=StatusUser)
-def get_status_user(id_contest: int, id_user: int, user_services: UsersServices = Depends(),
+@router.get('/status/{id_contest}', response_model=StatusUser)
+async def get_status_user(id_contest: int, user_services: UsersServices = Depends(),
                     user: UserGet = Depends(get_current_user)):
-    return user_services.status_user(id_contest, user.id)
+    return await user_services.status_user(id_contest, user.id)
 
 
 @router.post('/', response_model=UserGet)
