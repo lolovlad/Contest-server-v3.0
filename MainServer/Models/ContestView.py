@@ -6,6 +6,7 @@ from .Compilations import GetCompilations
 
 class ContestView(BaseModel):
     id: int
+    name_contest: str
     datetime_start: datetime
     datetime_end: datetime
     datetime_registration: datetime = datetime.now()

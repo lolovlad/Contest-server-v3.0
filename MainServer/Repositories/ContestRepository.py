@@ -68,4 +68,5 @@ class ContestsRepository:
             where(ContestRegistration.id_contest == id_contest)
 
         result = await self.__session.execute(response)
-        return result.scalars().first() if len(result) > 0 else 0
+        id_team = result.scalars().all()
+        return id_team[0] if id_team[0] is not None else 0

@@ -8,6 +8,7 @@ from ..Models.WebSocketMessages import BaseMessage, TypeMessage
 from ..Models.Task import TaskGet, TaskSettings, TaskViewUser, TaskAndTest
 from ..Models.Contest import TypeContest
 from ..Models.ContestView import ContestView
+from ..Models.Answer import AnswerView, Report
 
 from .LoginServices import get_current_user
 
@@ -82,87 +83,64 @@ class MainViewContestService:
         return task_main
 
     async def post_answer(self, body_message: dict):
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = answer_pb2_grpc.AnswerApiStub(channel)
-            user = get_current_user(body_message["token"])
-            request = answer_pb2.SendAnswerRequest(
-                id_task=int(body_message["id_task"]),
-                id_user=user.id,
-                id_team=await self.__get_team_user(user.id, body_message["id_contest"]),
-                id_contest=int(body_message["id_contest"]),
-                id_compiler=int(body_message["id_compiler"]),
-                program_file=body_message["program_file"].encode(),
-            )
-            call = sub.SendAnswer(request)
-            async for info in call:
-                print("request_answer", info)
-                message = BaseMessage(
-                    message=TypeMessage.POTS_ANSWER,
-                    body_message={"code": info.code}
-                )
-                yield message.json()
-            yield BaseMessage(
-                message=TypeMessage.GET_LIST_TASK,
-                body_message={"code": info.code}
-            ).json()
 
-    async def get_list_answers(self, id_task: int, id_contest: int, id_user: int) -> BaseMessage:
-        contest = self.__contest_services.get_contest(id_contest)
+        id_user = get_current_user(body_message["token"])
+
+        id_team: int = await self.__contest_repository.get_id_team_by_user_and_contest(id_user.id, int(body_message["id_contest"]))
+
+        call = self.__answer_repository.post_answer(body_message, id_team, id_user.id)
+
+        async for info in call:
+            message = BaseMessage(
+                message=TypeMessage.POTS_ANSWER,
+                body_message={"code": info.code}
+            )
+            yield message.json()
+        yield BaseMessage(
+            message=TypeMessage.GET_LIST_TASK,
+            body_message={"code": "200"}
+        ).json()
+
+    async def get_list_answers(self, id_task: int, id_contest: int, id_user: int) -> List[AnswerView]:
+        contest = await self.__contest_repository.get_contest(id_contest)
 
         type_contest = "solo" if contest.type == TypeContest.OLIMPIADA else "team"
 
         id_search = 0
         if type_contest == "team":
-            id_search = self.__session.query(ContestRegistration)\
-                .filter(ContestRegistration.id_user == id_user)\
-                .filter(ContestRegistration.id_contest == id_contest).first().id_team
+            id_search = await self.__contest_repository.get_id_team_by_user_and_contest(id_user, id_contest)
         else:
             id_search = id_user
 
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = answer_pb2_grpc.AnswerApiStub(channel)
-            response = await sub.GetListAnswersTask(answer_pb2.GetListAnswersTaskRequest(
-                id_task=id_task,
-                type_contest=type_contest,
-                id=id_search
-            ))
-            list_answer = []
-            for answer in response.answers:
-                user = self.__user_services.get_user_id(answer.id_user)
+        xash_ans = {}
 
-                task = self.__session.query(Task).filter(Task.id == answer.id_task).first()
-                list_answer.append({
-                    "date_send": answer.date_send,
-                    "id": answer.id,
-                    "name_user": f"{user.sename} {user.name[0]}. {user.secondname[0]}.",
-                    "name_task": task.name_task,
-                    "name_compilation": answer.name_compilation,
-                    "total": answer.total,
-                    "time": answer.time,
-                    "memory_size": answer.memory_size,
-                    "number_test": answer.number_test,
-                    "points": answer.points,
-                })
-            message = BaseMessage(
-                message=TypeMessage.GET_LIST_ANSWER,
-                body_message={"list": list_answer}
-            )
-            return message
+        list_answers_response = await self.__answer_repository.get_list_answer_by_id_task(id_task, type_contest, id_search)
 
-    async def get_report(self, id_answer: int):
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            sub = answer_pb2_grpc.AnswerApiStub(channel)
-            request = answer_pb2.GetReportFileRequest(id_answer=id_answer)
-            response = await sub.GetReportFile(request)
+        task = await self.__task_repository.get(id_task)
+        list_answer = []
 
-        message = BaseMessage(
-            message=TypeMessage.GET_REPORT,
-            body_message={"report": loads(response.report_file.decode())}
-        )
-        return message
+        for answer in list_answers_response:
+            if answer.id_user not in xash_ans:
+                xash_ans[answer.id_user] = await self.__user_repository.get_user(answer.id_user)
+            user = xash_ans[answer.id_user]
+            list_answer.append(AnswerView(**{
+                "date_send": answer.date_send,
+                "id": answer.id,
+                "name_user": f"{user.sename} {user.name[0]}. {user.secondname[0]}.",
+                "name_task": task.name_task,
+                "name_compilation": answer.name_compilation,
+                "total": answer.total,
+                "time": answer.time,
+                "memory_size": answer.memory_size,
+                "number_test": answer.number_test,
+                "points": answer.points,
+            }))
+        return list_answer
+
+    async def get_report(self, id_answer: int) -> Report:
+        report = await self.__answer_repository.get_report(id_answer)
+        return Report(report=report)
 
     async def close_contest(self, id_user: int, id_contest: int):
-        contest = self.__session.query(ContestRegistration).filter(ContestRegistration.id_contest == id_contest)\
-            .filter(ContestRegistration.id_user == id_user).first()
-        contest.state_contest = 2
-        self.__session.commit()
+        await self.__contest_repository.update_user_state_contest(id_contest, id_user)
+

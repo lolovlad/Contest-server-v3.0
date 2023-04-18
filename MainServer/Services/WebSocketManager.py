@@ -1,7 +1,7 @@
 from fastapi import WebSocket, Depends
-from ..Models.WebSocketMessages import User, BaseMessage, TypeMessage, TaskView, GetListTask
+from ..Models.WebSocketMessages import User, BaseMessage, TypeMessage
 from typing import List
-from ..Services.UserContestView import MainViewContestService
+from ..Services.MainViewContestService import MainViewContestService
 
 
 class ConnectionManager:

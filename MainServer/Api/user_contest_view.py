@@ -9,6 +9,7 @@ from ..Services.LoginServices import get_current_user
 from ..Models.ContestView import ContestView
 from ..Models.User import UserGet
 from ..Models.Task import TaskViewUser, TaskAndTest
+from ..Models.Answer import AnswerView, Report
 
 from asyncio.queues import Queue
 from asyncio import gather
@@ -36,7 +37,7 @@ async def get_task(id_task: int, services: MainViewContestService = Depends()):
     return task
 
 
-@router.get("/get_list_answers/{id_contest}/{id_task}", response_model=BaseMessage)
+@router.get("/get_list_answers/{id_contest}/{id_task}", response_model=List[AnswerView])
 async def get_list_answers(id_contest: int,
                            id_task: int,
                            services: MainViewContestService = Depends(),
@@ -45,7 +46,7 @@ async def get_list_answers(id_contest: int,
     return list_answer
 
 
-@router.get("/get_report/{id_answer}", response_model=BaseMessage)
+@router.get("/get_report/{id_answer}", response_model=Report)
 async def get_report(id_answer: int, services: MainViewContestService = Depends()):
     report = await services.get_report(id_answer)
     return report

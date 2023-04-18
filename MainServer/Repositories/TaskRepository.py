@@ -10,7 +10,7 @@ from fastapi import Depends
 from ..Services.protos import settings_pb2_grpc, settings_pb2, jsonTest_pb2_grpc, jsonTest_pb2
 from ..grps_review import get_channel
 from ..Models.Task import *
-from ..Models.TaskTestSettings import Test, SettingsTest
+from ..Models.TaskTestSettings import Test, SettingsTest, ChunkTest
 from typing import List, Any
 
 from ..async_database import get_session
@@ -20,13 +20,13 @@ class JsonTestRepository:
     def __init__(self,  channel: Channel = Depends(get_channel)):
         self.__channel: Channel = channel
 
-    def get_first_test(self, id_task: int, type_test: str = "test", index: int = 0):
+    async def get_first_test(self, id_task: int, type_test: str = "test", index: int = 0):
         sub = jsonTest_pb2_grpc.JsonTestApiStub(self.__channel)
         response_settings = await sub.GetAllSettingsTests(jsonTest_pb2.GetAllSettingsTestsRequest(id=id_task))
         response_chunk = await sub.GetChunkTest(jsonTest_pb2.GetChunkTestRequest(id=id_task, type_test=type_test, index=index))
 
         model_settings = [SettingsTest.from_orm(obj) for obj in response_settings.settings]
-        model_chunk = [Test.from_orm(obj) for obj in response_settings.settings]
+        model_chunk = [Test.from_orm(obj) for obj in response_chunk.tests]
         return model_settings, model_chunk
 
 
@@ -38,7 +38,7 @@ class TaskRepository:
         self.__channel: Channel = channel
 
     async def get_list_task_view_by_id_contest(self, id_contest: int) -> List[TaskViewUser]:
-        response = select(Task).where(id_contest == id_contest)
+        response = select(Task).where(Task.id_contest == id_contest)
         result = await self.__session.execute(response)
         return [TaskViewUser.from_orm(obj) for obj in result.scalars().all()]
 

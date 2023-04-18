@@ -15,8 +15,8 @@ class CheckType(str, Enum):
 
 
 class SettingsTest(BaseModel):
-    limitation_variable: List[str]
-    necessary_test: List[int]
+    limitation_variable: str
+    necessary_test: str
     check_type: CheckType
 
     class Config:
@@ -33,8 +33,7 @@ class Test(BaseModel):
 
 
 class ChunkTest(BaseModel):
-    type_test: TypeTest
-    settings_test: SettingsTest
+    setting_tests: SettingsTest
     tests: List[Test]
 
     class Config:
