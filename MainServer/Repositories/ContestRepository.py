@@ -69,4 +69,5 @@ class ContestsRepository:
 
         result = await self.__session.execute(response)
         id_team = result.scalars().all()
+        await self.__session.close()
         return id_team[0] if id_team[0] is not None else 0

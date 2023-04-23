@@ -3,7 +3,7 @@ from MainServer.database import engine, Session
 from MainServer.Models.EducationalOrganizations import TypeOrganization
 
 
-base.metadata.create_all(engine)
+
 session = Session()
 
 '''user_data = {
