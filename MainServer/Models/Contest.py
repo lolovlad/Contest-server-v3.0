@@ -28,6 +28,7 @@ class UserContest(BaseModel):
 
 class BaseContest(BaseModel):
     name_contest: str
+    description: str
     type: TypeContest = 1
 
     state_contest: TypeState = 0

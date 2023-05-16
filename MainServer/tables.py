@@ -72,8 +72,8 @@ class Team(base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name_team = Column(String, nullable=True)
 
-    users = relationship("TeamRegistration", back_populates="team", cascade="all, delete")
-    contests = relationship("ContestRegistration", back_populates="team", cascade="all, delete")
+    users = relationship("TeamRegistration", back_populates="team", cascade="all, delete", lazy="joined")
+    contests = relationship("ContestRegistration", back_populates="team", cascade="all, delete", lazy="joined")
 
 
 class TeamRegistration(base):
@@ -82,8 +82,8 @@ class TeamRegistration(base):
     id_user = Column(Integer, ForeignKey("user.id"))
     id_team = Column(Integer, ForeignKey("team.id"))
 
-    user = relationship("User", back_populates="teams")
-    team = relationship("Team", back_populates="users")
+    user = relationship("User", back_populates="teams", lazy="joined")
+    team = relationship("Team", back_populates="users", lazy="joined")
 
 
 class ContestRegistration(base):
@@ -95,9 +95,9 @@ class ContestRegistration(base):
     id_team = Column(Integer, ForeignKey('team.id'), default=None)
     state_contest = Column(Integer, nullable=False, default=1)
 
-    user = relationship('User', join_depth=2, back_populates="contests")
-    contest = relationship('Contest', join_depth=2, back_populates="users")
-    team = relationship('Team', join_depth=2, back_populates="contests")
+    user = relationship('User', join_depth=2, back_populates="contests", lazy="joined")
+    contest = relationship('Contest', join_depth=2, back_populates="users", lazy="joined")
+    team = relationship('Team', join_depth=2, back_populates="contests", lazy="joined")
 
 
 class Contest(base):
@@ -107,6 +107,8 @@ class Contest(base):
     name_contest = Column(String, nullable=True)
     datetime_start = Column(DateTime, nullable=True)
     datetime_end = Column(DateTime, nullable=True)
+
+    description = Column(LargeBinary, nullable=True, default=b'')
 
     datetime_registration = Column(DateTime, default=datetime.now())
 
@@ -138,40 +140,3 @@ class Task(base):
     number_shipments = Column(Integer, nullable=True, default=100)
 
     #answers = relationship("Answer", backref="task", lazy=True)
-
-
-'''
-class TypeCompilation(base):
-    __tablename__ = "type_compilation"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name_compilation = Column(String, nullable=True)
-    path_compilation = Column(String, nullable=True)
-    path_commands = Column(String, nullable=True)
-
-
-
-
-class Answer(base):
-    __tablename__ = "answer"
-
-    date_send = Column(DateTime, nullable=False, default=datetime.now())
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    id_team = Column(Integer, ForeignKey('team.id'), default=0)
-    id_user = Column(Integer, ForeignKey('user.id'))
-    id_task = Column(Integer, ForeignKey('task.id'))
-    id_contest = Column(Integer, ForeignKey('contest.id'))
-    type_compiler = Column(Integer, ForeignKey('type_compilation.id'), default=1)
-    total = Column(String, nullable=False, default="-")
-    time = Column(String, nullable=False, default="-")
-    memory_size = Column(Float, nullable=False, default=0)
-    number_test = Column(Integer, nullable=False, default=0)
-    points = Column(Integer, nullable=False, default=0)
-
-    path_report_file = Column(String, nullable=False, default="None")
-    path_programme_file = Column(String, nullable=False)
-
-    user = relationship('User', backref='user', lazy=True)
-    team = relationship('Team', backref='Team', lazy=True)
-    compilation = relationship('TypeCompilation', backref='type_compilation', lazy=True)
-'''

@@ -23,6 +23,7 @@ def upgrade() -> None:
     sa.Column('name_contest', sa.String(), nullable=True),
     sa.Column('datetime_start', sa.DateTime(), nullable=True),
     sa.Column('datetime_end', sa.DateTime(), nullable=True),
+    sa.Column('description', sa.LargeBinary(), nullable=True),
     sa.Column('datetime_registration', sa.DateTime(), nullable=True),
     sa.Column('type', sa.Integer(), nullable=True),
     sa.Column('state_contest', sa.Integer(), nullable=True),

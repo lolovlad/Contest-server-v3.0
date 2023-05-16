@@ -55,6 +55,7 @@ class ContestsServices:
                                  datetime_start=contest.datetime_start.isoformat(),
                                  datetime_end=contest.datetime_end.isoformat(),
                                  datetime_registration=contest.datetime_registration.isoformat(),
+                                 description=contest.description,
                                  type=contest.type,
                                  state_contest=contest.state_contest,
                                  tasks=[])
@@ -75,6 +76,7 @@ class ContestsServices:
                           datetime_start=datetime.strptime(contest_data.datetime_start, '%Y-%m-%dT%H:%M:%S.%fZ') + self.__time_zone,
                           datetime_end=datetime.strptime(contest_data.datetime_end, '%Y-%m-%dT%H:%M:%S.%fZ') + self.__time_zone,
                           type=contest_data.type,
+                          description=contest_data.description.encode(),
                           state_contest=contest_data.state_contest)
 
         self.__session.add(contest)
@@ -82,7 +84,7 @@ class ContestsServices:
         contest = self.__convert_contest(contest)
         return contest
 
-    def delete_contest(self, id_contest: int) -> ContestDelete:
+    def delete_contest(self, id_contest: int):
         contest = self.__get_by_id(id_contest)
         ts_service = TaskServices()
         if contest.tasks is not None:
@@ -90,16 +92,8 @@ class ContestsServices:
                 ts_service.delete_task(task.id)
         self.__session.delete(contest)
         self.__session.commit()
-        contest = ContestDelete(id=contest.id,
-                                name_contest=contest.name_contest,
-                                datetime_start=contest.datetime_start,
-                                datetime_end=contest.datetime_end,
-                                datetime_registration=contest.datetime_registration,
-                                type=contest.type,
-                                state_contest=contest.type)
-        return contest
 
-    def update_contest(self, contest_data: ContestUpdate) -> ContestGet:
+    def update_contest(self, contest_data: ContestUpdate):
         contest = self.__get_by_id(contest_data.id)
         for field, val in contest_data:
             if field in ("name_contest", "state_contest"):
@@ -107,11 +101,8 @@ class ContestsServices:
             elif field in ("datetime_start", "datetime_end"):
                 setattr(contest, field, datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ') + self.__time_zone)
         self.__session.commit()
-        contest = self.__get_by_id(contest.id)
-        contest = self.__convert_contest(contest)
-        return contest
 
-    def add_users_contest(self, contest_data: ContestPutUsers) -> ContestGet:
+    def add_users_contest(self, contest_data: ContestPutUsers):
         contest = self.__get_by_id(contest_data.id)
         users = self.__get_reg_users(contest_data.id)
         for user in users:
@@ -124,8 +115,6 @@ class ContestsServices:
                                               id_team=user.id_team)
             self.__session.add(contest_reg)
         self.__session.commit()
-        contest = self.__convert_contest(contest)
-        return contest
 
     def get_list_contest_by_user_id(self, id_user: int) -> List[ContestCardView]:
         contests_reg = self.__session.query(ContestRegistration).filter(ContestRegistration.id_user == id_user).all()

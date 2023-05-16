@@ -28,32 +28,32 @@ def get_contest(id_contest: int, contest_services: ContestsServices = Depends())
     return contest_services.get_contest(id_contest)
 
 
-@router.post("/", response_model=ContestGet)
+@router.post("/")
 def post_contest(contest_data: ContestPost, contest_services: ContestsServices = Depends(),
                  user: UserGet = Depends(get_current_user)):
     if user.type == TypeUser.ADMIN:
-        return contest_services.add_contest(contest_data)
+        contest_services.add_contest(contest_data)
 
 
-@router.delete("/{id_contest}", response_model=ContestDelete)
+@router.delete("/{id_contest}")
 def delete_contest(id_contest: int, contest_services: ContestsServices = Depends(),
                    user: UserGet = Depends(get_current_user)):
     if user.type == TypeUser.ADMIN:
-        return contest_services.delete_contest(id_contest)
+        contest_services.delete_contest(id_contest)
 
 
-@router.put("/", response_model=ContestGet)
+@router.put("/")
 def update_contest(contest_data: ContestUpdate, contest_services: ContestsServices = Depends(),
                    user: UserGet = Depends(get_current_user)):
     if user.type == TypeUser.ADMIN:
-        return contest_services.update_contest(contest_data)
+        contest_services.update_contest(contest_data)
 
 
-@router.put("/registration_users", response_model=ContestGet)
+@router.put("/registration_users")
 def registration_users_contest(contest_data: ContestPutUsers, contest_services: ContestsServices = Depends(),
                                user: UserGet = Depends(get_current_user)):
     if user.type == TypeUser.ADMIN:
-        return contest_services.add_users_contest(contest_data)
+        contest_services.add_users_contest(contest_data)
 
 
 @router.get("/report_total/{id_contest}", response_model=ResultContest)
