@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException
-from ..Models.Contest import ContestGet, ContestPost, ContestDelete, UserContest, \
+from ..Models.Contest import ContestGet, ContestPost, UserContest, \
     ContestPutUsers, ContestUpdate, ContestCardView, TypeState, TypeContest, ResultContest, TotalContest
 from ..Models.User import StateUser
 from ..Models.ReportTotal import ReportTotal
@@ -52,9 +52,9 @@ class ContestsServices:
         contest_reg = ContestGet(id=contest.id,
                                  users=users,
                                  name_contest=contest.name_contest,
-                                 datetime_start=contest.datetime_start.isoformat(),
-                                 datetime_end=contest.datetime_end.isoformat(),
-                                 datetime_registration=contest.datetime_registration.isoformat(),
+                                 datetime_start=contest.datetime_start,
+                                 datetime_end=contest.datetime_end,
+                                 datetime_registration=contest.datetime_registration,
                                  description=contest.description,
                                  type=contest.type,
                                  state_contest=contest.state_contest,
@@ -73,8 +73,8 @@ class ContestsServices:
 
     def add_contest(self, contest_data: ContestPost) -> ContestGet:
         contest = Contest(name_contest=contest_data.name_contest,
-                          datetime_start=datetime.strptime(contest_data.datetime_start, '%Y-%m-%dT%H:%M:%S.%fZ') + self.__time_zone,
-                          datetime_end=datetime.strptime(contest_data.datetime_end, '%Y-%m-%dT%H:%M:%S.%fZ') + self.__time_zone,
+                          datetime_start=datetime.strptime(contest_data.datetime_start, '%Y-%m-%dT%H:%M:%S.%fZ'),
+                          datetime_end=datetime.strptime(contest_data.datetime_end, '%Y-%m-%dT%H:%M:%S.%fZ'),
                           type=contest_data.type,
                           description=contest_data.description.encode(),
                           state_contest=contest_data.state_contest)
@@ -99,7 +99,9 @@ class ContestsServices:
             if field in ("name_contest", "state_contest"):
                 setattr(contest, field, val)
             elif field in ("datetime_start", "datetime_end"):
-                setattr(contest, field, datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ') + self.__time_zone)
+                setattr(contest, field, datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ'))
+            if field == "description":
+                setattr(contest, field, val.encode())
         self.__session.commit()
 
     def add_users_contest(self, contest_data: ContestPutUsers):
@@ -115,6 +117,19 @@ class ContestsServices:
                                               id_team=user.id_team)
             self.__session.add(contest_reg)
         self.__session.commit()
+
+    async def get_light_list(self) -> List[ContestCardView]:
+        contest_list = await self.__repo.get_admin_panel_view_contest()
+        card_view = []
+        for entity in contest_list:
+            card_view.append(ContestCardView(
+                id=entity[0],
+                name_contest=entity[2],
+                type=entity[3],
+                state_contest=entity[1],
+                is_view=True
+            ))
+        return card_view
 
     def get_list_contest_by_user_id(self, id_user: int) -> List[ContestCardView]:
         contests_reg = self.__session.query(ContestRegistration).filter(ContestRegistration.id_user == id_user).all()

@@ -71,3 +71,9 @@ class ContestsRepository:
         id_team = result.scalars().all()
         await self.__session.close()
         return id_team[0] if id_team[0] is not None else 0
+
+    async def get_admin_panel_view_contest(self) -> list:
+        response = select([Contest.id, Contest.state_contest, Contest.name_contest, Contest.type]).order_by(Contest.id)
+
+        result = await self.__session.execute(response)
+        return result

@@ -1,6 +1,5 @@
-from ..Models.Contest import ContestGet, ContestPost, ContestDelete, ContestPutUsers, ContestUpdate, ContestCardView, ResultContest
+from ..Models.Contest import ContestGet, ContestPost, ContestPutUsers, ContestUpdate, ContestCardView, ResultContest
 from ..Models.ReportTotal import ReportTotal
-#from ..Models.Menu import Menu
 from fastapi import Depends, APIRouter, status
 from fastapi.responses import JSONResponse
 from typing import List
@@ -26,6 +25,11 @@ def contests_by_user_id(user: UserGet = Depends(get_current_user),
 @router.get("/{id_contest}", response_model=ContestGet)
 def get_contest(id_contest: int, contest_services: ContestsServices = Depends()):
     return contest_services.get_contest(id_contest)
+
+
+@router.get("/list_light_contest/", response_model=List[ContestCardView])
+async def get_list_light_contest(contest_services: ContestsServices = Depends()):
+    return await contest_services.get_light_list()
 
 
 @router.post("/")
