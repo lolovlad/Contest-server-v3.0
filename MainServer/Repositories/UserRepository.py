@@ -82,4 +82,4 @@ class UserRepository:
     async def shit_response(self, type_user) -> List[User]:
         response = select(User).where(User.type != type_user)
         result = await self.__session.execute(response)
-        return result.scalars().all()
+        return result.unique().scalars().all()
