@@ -1,8 +1,8 @@
-FROM python:3.10
-RUN apt-get update -qy
+FROM python:3.11
+RUN mkdir /app
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 COPY . .
-WORKDIR .
-RUN pip install -r requirements.txt
-EXPOSE 8000
-CMD ["uvicorn", "MainServer.app:app", "--host", "0.0.0.0"]
+RUN chmod a+x docker/*.sh
 

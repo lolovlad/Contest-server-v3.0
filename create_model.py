@@ -6,14 +6,14 @@ from MainServer.Models.EducationalOrganizations import TypeOrganization
 
 session = Session()
 
-'''user_data = {
+user_data = {
     "login": "admin",
     "password": "admin",
     "type": 1,
     "name": "Vlad",
     "sename": "Skripnik",
     "secondname": "Vicktor",
-}'''
+}
 
 organization_data = [
     {"name_organizations": "Астраханский технический лицей", "type_organizations": TypeOrganization.School},
@@ -21,9 +21,9 @@ organization_data = [
 ]
 
 
-'''user = User(**user_data)
+user = User(**user_data)
 user.password = user_data["password"]
-session.add(user)'''
+session.add(user)
 
 organization = [EducationalOrganizations(**i) for i in organization_data]
 
