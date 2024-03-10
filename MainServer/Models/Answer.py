@@ -15,10 +15,6 @@ class AnswerGet(BaseModel):
     number_test: int
     points: int
 
-    class Config:
-        orm_mode = True
-
-
 class AnswerView(BaseModel):
     date_send: str
     id: int

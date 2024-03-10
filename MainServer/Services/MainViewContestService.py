@@ -5,7 +5,7 @@ from ..Repositories import CompilationsRepository, \
     TaskRepository, UserRepository, ContestsRepository, JsonTestRepository
 
 from ..Models.WebSocketMessages import BaseMessage, TypeMessage
-from ..Models.Task import TaskGet, TaskSettings, TaskViewUser, TaskAndTest
+from ..Models.Task import TaskGet, BaseTaskSettings, TaskViewUser, TaskAndTest
 from ..Models.Contest import TypeContest
 from ..Models.ContestView import ContestView
 from ..Models.Answer import AnswerView, Report
@@ -43,7 +43,7 @@ class MainViewContestService:
         return response
 
     async def get_list_task(self, id_contest: int, id_user: int) -> List[TaskViewUser]:
-        answers = await self.__answer_repository.get_list_answers(id_contest, id_user)
+        answers = await self.__answer_repository.get_list_answers_by_id_contest(id_contest, id_user)
         answers = {entity.id_task: (entity.total, entity.points) for entity in answers}
         tasks = await self.__task_repository.get_list_task_view_by_id_contest(id_contest)
 
@@ -88,9 +88,9 @@ class MainViewContestService:
 
         id_team: int = await self.__contest_repository.get_id_team_by_user_and_contest(id_user.id, int(body_message["id_contest"]))
 
-        call = self.__answer_repository.post_answer(body_message, id_team, id_user.id)
+        await self.__answer_repository.post_answer(body_message, id_team, id_user.id)
 
-        async for info in call:
+        '''async for info in call:
             message = BaseMessage(
                 message=TypeMessage.POTS_ANSWER,
                 body_message={"code": info.code}
@@ -99,7 +99,7 @@ class MainViewContestService:
         yield BaseMessage(
             message=TypeMessage.GET_LIST_TASK,
             body_message={"code": "200"}
-        ).json()
+        ).json()'''
 
     async def get_list_answers(self, id_task: int, id_contest: int, id_user: int) -> List[AnswerView]:
         contest = await self.__contest_repository.get_contest(id_contest)

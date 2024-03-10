@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 
 from ..tables import Team, TeamRegistration, User
 from ..Models.Team import UserTeam, TeamGet, TeamPost, TeamDelete
-from ..database import get_session
+from ..Repositories.TeamRepository import TeamRepository
 
 
 class TeamsServices:
-    def __init__(self, session: Session = Depends(get_session)):
-        self.__session: Session = session
+    def __init__(self, repo: TeamRepository = Depends()):
+        self.__repo: TeamRepository = repo
 
     def __get(self, id_team: int) -> Team:
         team = self.__session.query(Team).filter(Team.id == id_team).first()

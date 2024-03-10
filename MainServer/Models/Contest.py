@@ -52,9 +52,6 @@ class ContestGet(BaseContest):
     users: List[UserContest]
     tasks: List[TaskGet]
 
-    class Config:
-        orm_mode = True
-
 
 class ContestPost(BaseContest):
     datetime_start: str

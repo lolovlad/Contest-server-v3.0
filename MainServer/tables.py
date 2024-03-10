@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, LargeBinary, \
-    DateTime, ForeignKey, Boolean, Text, Float
+    DateTime, ForeignKey, Boolean, Text, Float, UUID
 
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
@@ -8,24 +8,37 @@ from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
-
-from .Models.User import TypeUser
+from uuid import uuid4
 
 base = declarative_base()
+
+
+class TypeUser(base):
+    __tablename__ = "type_user"
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(32), nullable=False)
+    description = Column(String(128), nullable=True)
 
 
 class User(base):
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+
     login = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
-    type = Column(Integer, default=1, nullable=False)
+    id_type = Column(Integer, ForeignKey("type_user.id"))
+    type = relationship("TypeUser", lazy="joined")
 
     name = Column(String, nullable=True)
     sename = Column(String, nullable=True)
     secondname = Column(String, nullable=True)
-    foto = Column(String, nullable=False, default="Photo/default.png")
+    foto = Column(String, nullable=True, default="Photo/default.png")
+
+    id_edu_organization = Column(Integer, ForeignKey("educational_organizations.id"), nullable=True)
+    edu_organization = relationship("EducationalOrganizations", lazy="joined")
+    stage_edu = Column(String, nullable=True)
+
     data = Column(MutableDict.as_mutable(JSONB), default={})
 
     last_datatime_sign = Column(DateTime, nullable=True)
@@ -52,18 +65,30 @@ class User(base):
         self.hashed_password = generate_password_hash(val)
 
     def check_password(self, password):
-        if self.type == TypeUser.ADMIN:
+        if self.type.name == "admin":
             return check_password_hash(self.hashed_password, password)
         else:
             return password == self.hashed_password
+
+
+class TypeOrganizations(base):
+    __tablename__ = "type_organizations"
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(32), nullable=False)
+    start_range = Column(Integer, nullable=False, default=1)
+    end_range = Column(Integer, nullable=False, default=3)
+    postfix = Column(String(10), nullable=True)
+    description = Column(String(128), nullable=True)
 
 
 class EducationalOrganizations(base):
     __tablename__ = "educational_organizations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(UUID, nullable=False, default=uuid4())
     name_organizations = Column(String, nullable=False)
-    type_organizations = Column(Integer, nullable=False)
+    type_organizations_id = Column(Integer, ForeignKey("type_organizations.id"))
+    type_organizations = relationship("TypeOrganizations", lazy="joined")
 
 
 class Team(base):

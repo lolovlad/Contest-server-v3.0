@@ -14,7 +14,8 @@ async def get_users(response: Response, number_page: int = 1, type_user: str | N
     count_page = await user_services.get_count_page()
     response.headers["X-Count-Page"] = str(count_page)
     response.headers["X-Count-Item-User"] = str(user_services.count_item)
-    return await user_services.get_list_user(number_page, type_user)
+    list_user = await user_services.get_list_user(number_page, type_user)
+    return list_user
 
 
 @router.get("/{id_user}", response_model=UserGet)
@@ -33,19 +34,17 @@ async def post_user(response: Response,
                     user_services: UsersServices = Depends(),
                     user: UserPost = None,
                     user_data: UserGet = Depends(get_current_user)):
-    count_page = await user_services.get_count_page()
-    response.headers["X-Count-Page"] = str(count_page)
-    response.headers["X-Count-Item-User"] = str(user_services.count_item)
-    if user_data.type == TypeUser.ADMIN:
+    if user_data.type.name == "admin":
         await user_services.add_user(user)
 
 
-@router.put('/')
-async def put_user(user_data: UserUpdate,
+@router.put('/{user_id}')
+async def put_user(user_id: int,
+                   user_data: UserUpdate,
                    user_services: UsersServices = Depends(),
                    user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        await user_services.update_user(user_data.id, user_data)
+    if user.type.name == "admin":
+        await user_services.update_user(user_id, user_data)
 
 
 @router.delete('/{user_id}')
@@ -53,10 +52,7 @@ async def delete_user(response: Response,
                       user_id: int,
                       user_services: UsersServices = Depends(),
                       user: UserGet = Depends(get_current_user)):
-    count_page = await user_services.get_count_page()
-    response.headers["X-Count-Page"] = str(count_page)
-    response.headers["X-Count-Item-User"] = str(user_services.count_item)
-    if user.type == TypeUser.ADMIN:
+    if user.type.name == "admin":
         await user_services.delete_user(user_id)
 
 
@@ -69,3 +65,8 @@ async def get_in_team_users(id_team: int, user_services: UsersServices = Depends
 async def get_in_contest_users(id_contest: int, user_services: UsersServices = Depends()):
     return await user_services.get_list_in_contest_user(id_contest)
 
+
+@router.get("/type_user/all", response_model=list[TypeUser])
+async def get_type_user(user_services: UsersServices = Depends()):
+    list_type_user = await user_services.get_list_type_user()
+    return list_type_user

@@ -5,16 +5,19 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 
 from ..tables import User, TeamRegistration
-from ..Models.User import UserPost, UserUpdate, UserBase, UserGetInTeam, TeamUser, TypeUser
+from ..Models.User import UserPost, UserUpdate, UserBase, UserGetInTeam, TeamUser, TypeUser, UserGet
 from ..Models.Message import StatusUser
 
 from ..Repositories.UserRepository import UserRepository
+from ..Repositories.EduOrganizationRepository import EduOrganizationRepository
 
 
 class UsersServices:
     def __init__(self,
-                 user_repository: UserRepository = Depends()):
+                 user_repository: UserRepository = Depends(),
+                 edu_repository: EduOrganizationRepository = Depends()):
         self.__repo: UserRepository = user_repository
+        self.__repo_edu: EduOrganizationRepository = edu_repository
         self.__count_item: int = 20
 
     @property
@@ -39,10 +42,11 @@ class UsersServices:
     async def get_user_id(self, id_user: int) -> User:
         return await self.__get(id_user)
 
-    async def get_list_user(self, number_page: int, type_user: str) -> List[User]:
+    async def get_list_user(self, number_page: int, type_user: str) -> List[UserGet]:
         offset = (number_page - 1) * self.__count_item
-        users = await self.__repo.get_list_user_by_user_type(offset, self.__count_item, type_user)
-        return users
+        users_entity = await self.__repo.get_list_user_by_user_type(offset, self.__count_item, type_user)
+        users_models = [UserGet.model_validate(entity, from_attributes=True) for entity in users_entity]
+        return users_models
 
     async def get_list_in_team_user(self, id_team: int) -> List[User]:
         users = await self.__repo.get_list_user_in_team(id_team)
@@ -52,7 +56,11 @@ class UsersServices:
         if await self.__is_login(user_data):
             raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
         user = User(**user_data.dict())
-        if user.type == TypeUser.ADMIN:
+
+        edu_org = await self.__repo_edu.get_by_uuid(user_data.id_edu_organization)
+        user.id_edu_organization = edu_org.id
+        type_user = await self.__repo.get_type_user_by_id(user.id_type)
+        if type_user.name == "admin":
             user.password = user_data.password
         else:
             user.hashed_password = user_data.password
@@ -61,19 +69,28 @@ class UsersServices:
 
     async def update_user(self, id_user: int, user_data: UserUpdate):
         user = await self.__get(id_user)
+        if user.type.name == "admin":
+            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
+
+        edu_org = await self.__repo_edu.get_by_uuid(user_data.id_edu_organization)
+
         for field, val in user_data:
             if field == "password":
                 if len(val) > 0:
-                    if user_data.type == TypeUser.ADMIN:
+                    if user_data.type.name == "admin":
                         setattr(user, field, val)
                     else:
                         setattr(user, "hashed_password", val)
+            elif field == "id_edu_organization":
+                setattr(user, field, edu_org.id)
             else:
                 setattr(user, field, val)
         await self.__repo.update(user)
 
     async def delete_user(self, id_user: int):
         user = await self.__get(id_user)
+        if user.type.name == "admin":
+            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
         await self.__repo.delete(user)
 
     async def get_list_in_contest_user(self, id_contest: int) -> dict:
@@ -102,3 +119,6 @@ class UsersServices:
         state = await self.__repo.state_user(id_contest, id_user)
         return StatusUser(**{"id_user": id_user, "status": state})
 
+    async def get_list_type_user(self) -> list[TypeUser]:
+        list_type_user = await self.__repo.get_list_type_user()
+        return [TypeUser.model_validate(i, from_attributes=True) for i in list_type_user]

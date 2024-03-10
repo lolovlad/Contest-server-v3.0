@@ -5,7 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from .settings import settings
 
 
-DATABASE_URL = f"postgresql+asyncpg://{settings.database_name.strip()}"
+DATABASE_URL = f"postgresql+asyncpg://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:" \
+               f"{settings.postgres_port}/{settings.postgres_db}"
 
 
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -21,3 +22,7 @@ async def get_session() -> AsyncSession:
             yield session
         finally:
             await session.close()
+
+
+async def get_one_session() -> AsyncSession:
+    return async_session

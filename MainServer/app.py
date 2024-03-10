@@ -3,7 +3,6 @@ from .Api import router
 from fastapi_utils.tasks import repeat_every
 
 from datetime import datetime
-from .database import Session
 
 from .tables import Contest
 from .Models.Contest import TypeState
@@ -29,7 +28,7 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
+'''@app.on_event("startup")
 @repeat_every(seconds=60, wait_first=False)
 def switch_contest_state():
     with Session() as session:
@@ -42,4 +41,4 @@ def switch_contest_state():
             elif contest.state_contest == TypeState.GOING_ON:
                 if contest.datetime_end <= datetime_now:
                     contest.state_contest = TypeState.FINISHED
-        session.commit()
+        session.commit()'''

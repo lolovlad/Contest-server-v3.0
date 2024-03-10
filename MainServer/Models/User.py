@@ -1,6 +1,7 @@
 from typing import List
 from enum import Enum
 from pydantic import BaseModel
+from ..Models.EducationalOrganizations import OrganizationViewGet
 
 
 class StateUser(int, Enum):
@@ -13,35 +14,38 @@ class TeamUser(BaseModel):
     name_team: str
 
 
-class TypeUser(int, Enum):
-    ADMIN = 1
-    USER = 2
+class TypeUser(BaseModel):
+    id: int
+    name: str
+    description: str
 
 
 class UserBase(BaseModel):
     login: str
-    type: TypeUser
     name: str
     sename: str
     secondname: str
     foto: str = "Photo/default.png"
+    stage_edu: str = None
     data: dict = {}
 
 
 class UserGet(UserBase):
     id: int
-
-    class Config:
-        orm_mode = True
+    type: TypeUser
+    edu_organization: OrganizationViewGet = None
 
 
 class UserPost(UserBase):
     password: str
+    id_type: int
+    id_edu_organization: str
 
 
 class UserUpdate(UserBase):
-    id: int
     password: str
+    id_type: int
+    id_edu_organization: str
 
 
 class UserGetInTeam(BaseModel):

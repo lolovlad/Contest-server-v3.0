@@ -1,5 +1,4 @@
-import grpc
-from grpc.aio import Channel
+from httpx import AsyncClient
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,8 +6,7 @@ from ..tables import Contest, ContestRegistration
 
 from fastapi import Depends
 
-from ..Services.protos import contest_pb2, contest_pb2_grpc
-from ..grps_review import get_channel
+from ..review_service import get_channel
 from ..Models.Contest import *
 from typing import List, Any
 
@@ -18,16 +16,19 @@ from json import loads
 
 class ContestsRepository:
     def __init__(self,
-                 channel: Channel = Depends(get_channel),
+                 client: AsyncClient = Depends(get_channel),
                  session: AsyncSession = Depends(get_session)):
-        self.__channel: Channel = channel
+        self.__client: AsyncClient = client
         self.__session: AsyncSession = session
 
+    async def __get_reg_users(self, id_contest: int) -> List[ContestRegistration]:
+        response = select(ContestRegistration).where(ContestRegistration.id_contest == id_contest)
+        result = await self.__session.execute(response)
+        return result.scalars().all()
+
     async def get_list_report_total(self, id_contest: int) -> dict:
-        sub = contest_pb2_grpc.ContestApiStub(self.__channel)
-        request = contest_pb2.GetReportTotalRequest(id_contest=id_contest)
-        response = await sub.GetReportTotal(request)
-        result = loads(response.result.decode())
+        response = await self.__client.get(f"contest/get_report/{id_contest}")
+        result = loads(response.text)
         return {key: TotalContest(**result[key]) for key in result}
 
     async def set_id_users(self, id_contest) -> List[int]:
@@ -46,9 +47,8 @@ class ContestsRepository:
         return result.scalars().all()
 
     async def get_contest(self, id_contest: int) -> Contest:
-        response = select(Contest).where(Contest.id == id_contest)
-        result = await self.__session.execute(response)
-        return result.scalars().first()
+        result = await self.__session.get(Contest, id_contest)
+        return result.scalars()
 
     async def update_user_state_contest(self,
                                         id_contest: int,
@@ -76,4 +76,52 @@ class ContestsRepository:
         response = select([Contest.id, Contest.state_contest, Contest.name_contest, Contest.type]).order_by(Contest.id)
 
         result = await self.__session.execute(response)
-        return result
+        return result.scalars().all()
+
+    async def get_list_contest(self) -> List[Contest]:
+        response = select(Contest)
+        result = await self.__session.execute(response)
+        return result.scalars().all()
+
+    async def add(self, contest: Contest):
+        try:
+            self.__session.add(contest)
+            await self.__session.commit()
+        except:
+            await self.__session.rollback()
+            raise Exception
+
+    async def delete(self, contest: Contest):
+        try:
+            await self.__session.delete(contest)
+            await self.__session.commit()
+        except:
+            await self.__session.rollback()
+            raise Exception
+
+    async def update(self, contest: Contest):
+        try:
+            self.__session.add(contest)
+            await self.__session.commit()
+        except Exception:
+            await self.__session.rollback()
+            raise Exception
+
+    async def add_users_contest(self, contest_data: ContestPutUsers):
+        contest = await self.get_contest(contest_data.id)
+        users = await self.__get_reg_users(contest_data.id)
+        for user in users:
+            await self.__session.delete(user)
+        for user in contest_data.users:
+            if user.id_team == 0:
+                user.id_team = None
+            contest_reg = ContestRegistration(id_user=user.id,
+                                              id_contest=contest.id,
+                                              id_team=user.id_team)
+            self.__session.add(contest_reg)
+        await self.__session.commit()
+
+    async def get_contest_registration(self, id_user: int) -> list[ContestRegistration]:
+        query = select(ContestRegistration).where(ContestRegistration.id_user == id_user)
+        response = await self.__session.execute(query)
+        return response.scalars().all()

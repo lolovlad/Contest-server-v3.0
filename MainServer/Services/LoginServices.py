@@ -2,12 +2,12 @@ from jose import JWTError, jwt
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tables import User
 from ..Models.User import UserGet, TypeUser
 from ..Models.UserLogin import UserLogin, Token, UserSigIn
-from ..database import get_session
+from ..Repositories.UserRepository import UserRepository
 from ..settings import settings
 from datetime import datetime, timedelta
 
@@ -19,12 +19,8 @@ def get_current_user(token: str = Depends(oauth2_cheme)) -> UserGet:
 
 
 class LoginServices:
-    def __init__(self, session: Session = Depends(get_session)):
-        self.__session = session
-
-    def __get(self, login_user: str) -> User:
-        user = self.__session.query(User).filter(User.login == login_user).first()
-        return user
+    def __init__(self, repository: UserRepository = Depends()):
+        self.__repository: UserRepository = repository
 
     @classmethod
     def validate_token(cls, token: str) -> UserGet:
@@ -50,7 +46,7 @@ class LoginServices:
 
     @classmethod
     def create_token(cls, user: User) -> Token:
-        user_data = UserGet.from_orm(user)
+        user_data = UserGet.model_validate(user, from_attributes=True)
 
         now = datetime.utcnow()
 
@@ -59,18 +55,18 @@ class LoginServices:
             'nbf': now,
             'exp': now + timedelta(seconds=settings.jwt_expiration),
             'sub': str(user_data.id),
-            'user': user_data.dict()
+            'user': user_data.model_dump()
         }
         token = jwt.encode(payload,
                            settings.jwt_secret,
                            algorithm=settings.jwt_algorithm)
-        return Token(access_token=token, type_user=user_data.type)
+        return Token(access_token=token, user=user_data.model_dump())
 
-    def login_user(self, user_login: UserLogin, request: Request) -> Token:
-        user = self.__get(user_login.login)
+    async def login_user(self, user_login: UserLogin, request: Request) -> Token:
+        user = await self.__repository.get_user_by_login(user_login.login)
         if user:
             if user.check_password(user_login.password):
                 user.last_datatime_sign = datetime.now()
                 user.last_ip_sign = request.client.host
-                self.__session.commit()
+                await self.__repository.update(user)
                 return self.create_token(user)

@@ -1,14 +1,15 @@
 from pydantic import BaseModel
+from .User import UserGet
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str = 'bearer'
-    type_user: int
+    user: UserGet
 
 
 class UserSigIn(BaseModel):
-    type_user: int
+    user: UserGet
     token: Token
 
 

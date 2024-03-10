@@ -33,13 +33,16 @@ class BaseTask(BaseModel):
     type_task: TypeTask
 
 
-class TaskSettings(BaseModel):
+class BaseTaskSettings(BaseModel):
     id: int
     time_work: int
     size_raw: int
     type_input: TypeInput = 1
     type_output: TypeOutput = 1
     number_shipments: int
+
+
+class GetTaskSettings(BaseTaskSettings):
     files: List[str] = []
 
 
@@ -85,6 +88,6 @@ class GetListTaskViewUser(BaseModel):
     list_task: List[TaskViewUser]
 
 
-class TaskAndTest(TaskGet, TaskSettings):
+class TaskAndTest(TaskGet, GetTaskSettings):
     view_settings: List[SettingsTest] = []
     view_test: List[Test] = []

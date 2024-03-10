@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from ..tables import User, ContestRegistration, TeamRegistration
+from ..tables import User, ContestRegistration, TeamRegistration, TypeUser
 from ..async_database import get_session
 from ..Models.User import UserPost
 
@@ -83,3 +83,12 @@ class UserRepository:
         response = select(User).where(User.type != type_user)
         result = await self.__session.execute(response)
         return result.unique().scalars().all()
+
+    async def get_list_type_user(self) -> list[TypeUser]:
+        query = select(TypeUser)
+        result = await self.__session.execute(query)
+        return result.scalars().all()
+
+    async def get_type_user_by_id(self, id_type_user: int) -> TypeUser:
+        entity = await self.__session.get(TypeUser, id_type_user)
+        return entity

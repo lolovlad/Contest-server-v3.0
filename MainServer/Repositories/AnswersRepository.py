@@ -1,56 +1,43 @@
-import grpc
-from grpc.aio import Channel
-
+from httpx import AsyncClient
 from fastapi import Depends
 
-from ..Services.protos import answer_pb2, answer_pb2_grpc
-from ..grps_review import get_channel
-
+from ..review_service import get_channel
 from ..Models.Answer import AnswerGet
 
 
 from typing import List
 from json import loads
 
+
 class AnswersRepository:
-    def __init__(self, channel: Channel = Depends(get_channel)):
-        self.__channel: Channel = channel
+    def __init__(self, client: AsyncClient = Depends(get_channel)):
+        self.__client: AsyncClient = client
 
-    async def get_list_answers(self, id_contest: int, id_user: int) -> List[AnswerGet]:
-        sub = answer_pb2_grpc.AnswerApiStub(self.__channel)
-        response = await sub.GetAnswersContest(answer_pb2.GetAnswersContestRequest(id_contest=id_contest,
-                                                                                   id=id_user))
+    async def get_list_answers_by_id_contest(self, id_contest: int, id_user: int) -> List[AnswerGet]:
+        response = await self.__client.get(f"answer/list_answer_contest/{id_contest}", params={
+            "id_user": id_user
+        })
 
-        return [AnswerGet.from_orm(obj) for obj in response.answers]
+        return [AnswerGet.model_validate(obj) for obj in response.json()]
 
-    def post_answer(self, body_message: dict, id_team: int, id_user: int):
-        sub = answer_pb2_grpc.AnswerApiStub(self.__channel)
-        request = answer_pb2.SendAnswerRequest(
-            id_task=int(body_message["id_task"]),
-            id_user=id_user,
-            id_team=id_team,
-            id_contest=int(body_message["id_contest"]),
-            id_compiler=int(body_message["id_compiler"]),
-            program_file=body_message["program_file"].encode(),
-        )
-        return sub.SendAnswer(request)
+    async def post_answer(self, body_message: dict, id_user: int, id_team: int = 0):
+        request = await self.__client.post(f"answer/send_answer/{body_message['id_task']}", json={
+            "id_user": id_user,
+            "id_contest": int(body_message["id_contest"]),
+            "id_compilation": int(body_message["id_compiler"]),
+            "program_file": body_message["program_file"].encode(),
+        })
 
     async def get_list_answer_by_id_task(self, id_task: int, type_contest: str, id_search: int) -> list:
-        sub = answer_pb2_grpc.AnswerApiStub(self.__channel)
-        response = await sub.GetListAnswersTask(answer_pb2.GetListAnswersTaskRequest(
-            id_task=id_task,
-            type_contest=type_contest,
-            id=id_search
-        ))
-        return response.answers
+        response = await self.__client.get(f"answer/list_answer_task/{id_task}", params={
+            "type_contest": type_contest,
+            "id_user": id_search
+        })
+        return response.json()
 
     async def get_report(self, id_answer: int) -> dict:
-        sub = answer_pb2_grpc.AnswerApiStub(self.__channel)
-        request = answer_pb2.GetReportFileRequest(id_answer=id_answer)
-        response = await sub.GetReportFile(request)
-
-        return loads(response.report_file.decode())
-
+        response = await self.__client.get(f"answer/get_report_file/{id_answer}")
+        return loads(response.text)
 
     async def get_max_point_answer_by_contest_and_user_id(self, id_contest: int, id_user: int):
         pass

@@ -6,7 +6,7 @@ from ..Models.User import UserGet, TypeUser
 from ..Services.LoginServices import get_current_user
 from ..Services.TaskServices import TaskServices
 from ..Services.FileServices import FileServices
-from ..Models.Task import TaskGet, TaskSettings, TaskPut, TaskPost, TaskGetView
+from ..Models.Task import TaskGet, BaseTaskSettings, TaskPut, TaskPost, TaskGetView, GetTaskSettings
 
 from typing import List
 
@@ -24,7 +24,7 @@ async def post_task(task_data: TaskPost, task_services: TaskServices = Depends()
 
 
 @router.post("/settings", responses={status.HTTP_200_OK: {"message": "ok"}})
-async def post_settings_task(task_data: TaskSettings, task_services: TaskServices = Depends(),
+async def post_settings_task(task_data: BaseTaskSettings, task_services: TaskServices = Depends(),
                              user: UserGet = Depends(get_current_user)):
     if user.type == TypeUser.ADMIN:
         code = await task_services.add_task_settings(task_data)
@@ -42,7 +42,7 @@ async def put_task(task_data: TaskPut, task_services: TaskServices = Depends(),
 
 
 @router.put("/settings", responses={status.HTTP_200_OK: {"message": "ok"}})
-async def put_settings_task(task_data: TaskSettings, task_services: TaskServices = Depends(),
+async def put_settings_task(task_data: BaseTaskSettings, task_services: TaskServices = Depends(),
                             user: UserGet = Depends(get_current_user)):
     if user.type == TypeUser.ADMIN:
         code = await task_services.update_settings_task(task_data)
@@ -72,7 +72,7 @@ async def get_task(id_task: int, task_services: TaskServices = Depends(),
         return task_services.get_task(id_task)
 
 
-@router.get("/get_settings/{id_task}", response_model=TaskSettings)
+@router.get("/get_settings/{id_task}", response_model=GetTaskSettings)
 async def get_settings(id_task: int, task_services: TaskServices = Depends()):
     settings = await task_services.get_settings(id_task)
     return settings
