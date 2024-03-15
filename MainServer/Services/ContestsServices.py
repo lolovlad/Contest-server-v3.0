@@ -1,31 +1,38 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from ..Models.Contest import ContestGet, ContestPost, UserContest, \
-    ContestPutUsers, ContestUpdate, ContestCardView, TypeState, TypeContest, ResultContest, TotalContest
+    ContestPutUsers, ContestUpdate, ContestCardView, TypeContest, ResultContest, TotalContest, StateContest
 from ..Models.User import StateUser
-from ..Models.ReportTotal import ReportTotal
-from typing import List
 
-from sqlalchemy.orm import Session
-from ..tables import Contest, ContestRegistration, User, Team
+from typing import List
+from ..tables import Contest
 from ..settings import settings
 
 from datetime import timedelta, datetime
-from json import loads
+from uuid import uuid4
 
-from .TaskServices import TaskServices
-from ..Repositories import ContestsRepository, UserRepository, TeamRepository
+from ..Repositories import ContestsRepository, UserRepository, TaskRepository
 
 
 class ContestsServices:
     def __init__(self,
                  contest_repo: ContestsRepository = Depends(),
                  user_repo: UserRepository = Depends(),
-                 team_repo: TeamRepository = Depends()):
+                 task_repo: TaskRepository = Depends()):
         self.__time_zone = timedelta(hours=4)
         self.__ip_review = f'{settings.server_review_host}:{settings.server_review_port}'
         self.__repo: ContestsRepository = contest_repo
         self.__user_repo: UserRepository = user_repo
-        self.__team_repo: TeamRepository = team_repo
+        self.__task_repo: TaskRepository = task_repo
+        self.__count_item: int = 20
+
+    @property
+    def count_item(self) -> int:
+        return self.__count_item
+
+    async def get_count_page(self) -> int:
+        count_row = await self.__repo.count_row()
+        i = int(count_row % self.__count_item != 0)
+        return count_row // self.__count_item + i
 
     def __convert_contest(self, contest: Contest) -> ContestGet:
         if len(contest.users) != 0:
@@ -47,44 +54,46 @@ class ContestsServices:
                                  tasks=[])
         return contest_reg
 
-    async def get_list_contest(self) -> List[ContestGet]:
-        contests = await self.__repo.get_list_contest()
-        contest_reg = []
-        for contest in contests:
-            contest_reg.append(self.__convert_contest(contest))
+    async def get_list_contest(self, number_page: int) -> list[ContestCardView]:
+        offset = (number_page - 1) * self.__count_item
+        contests_list_entity = await self.__repo.get_list_contest(offset, self.__count_item)
+        contest_reg = [ContestCardView.model_validate(i, from_attributes=True) for i in contests_list_entity]
         return contest_reg
 
-    async def get_contest(self, id_contest: int) -> ContestGet:
-        contest = await self.__repo.get_contest(id_contest)
-        return self.__convert_contest(contest)
+    async def get_contest(self, uuid: str) -> ContestGet:
+        contest = await self.__repo.get_contest_by_uuid(uuid)
+        return ContestGet.model_validate(contest, from_attributes=True)
 
-    async def add_contest(self, contest_data: ContestPost) -> ContestGet:
-        contest = Contest(name_contest=contest_data.name_contest,
-                          datetime_start=datetime.strptime(contest_data.datetime_start, '%Y-%m-%dT%H:%M:%S.%fZ'),
-                          datetime_end=datetime.strptime(contest_data.datetime_end, '%Y-%m-%dT%H:%M:%S.%fZ'),
-                          type=contest_data.type,
-                          description=contest_data.description.encode(),
-                          state_contest=contest_data.state_contest)
+    async def add_contest(self, contest_data: ContestPost):
+        contest = Contest(
+            uuid=uuid4(),
+            name_contest=contest_data.name_contest,
+            datetime_start=datetime.strptime(contest_data.datetime_start, '%Y-%m-%dT%H:%M:%S.%fZ'),
+            datetime_end=datetime.strptime(contest_data.datetime_end, '%Y-%m-%dT%H:%M:%S.%fZ'),
+            id_type=contest_data.id_type,
+            id_state_contest=contest_data.id_state_contest,
+            description=contest_data.description.encode())
 
         await self.__repo.add(contest)
-        contest = self.__convert_contest(contest)
-        return contest
 
-    async def delete_contest(self, id_contest: int):
-        contest = await self.__repo.get_contest(id_contest)
-        ts_service = TaskServices()
-        if contest.tasks is not None:
-            for task in contest.tasks:
-                await ts_service.delete_task(task.id)
+    async def delete_contest(self, id_contest: str):
+        contest = await self.__repo.get_contest_by_uuid(id_contest)
+        #ts_service = TaskServices()
+        #if contest.tasks is not None:
+        #    for task in contest.tasks:
+        #        await ts_service.delete_task(task.id)
         await self.__repo.delete(contest)
 
-    async def update_contest(self, contest_data: ContestUpdate):
-        contest = await self.__repo.get_contest(contest_data.id)
+    async def update_contest(self, uuid, contest_data: ContestUpdate):
+        contest = await self.__repo.get_contest_by_uuid(uuid)
         for field, val in contest_data:
             if field in ("name_contest", "state_contest"):
                 setattr(contest, field, val)
             elif field in ("datetime_start", "datetime_end"):
-                setattr(contest, field, datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ'))
+                try:
+                    setattr(contest, field, datetime.strptime(val, '%Y-%m-%dT%H:%M:%S.%fZ'))
+                except:
+                    setattr(contest, field, datetime.strptime(val, '%Y-%m-%dT%H:%M:%S'))
             if field == "description":
                 setattr(contest, field, val.encode())
         await self.__repo.update(contest)
@@ -171,3 +180,29 @@ class ContestsServices:
 
     async def update_state_user_contest(self, id_contest: int, id_user: int):
         await self.__repo.update_user_state_contest(id_contest, id_user)
+
+    async def get_type_contest(self) -> list[TypeContest]:
+        entity = await self.__repo.get_type_contest()
+        return [TypeContest.model_validate(i, from_attributes=True) for i in entity]
+
+    async def get_state_contest(self) -> list[StateContest]:
+        entity = await self.__repo.get_state_contest()
+        return [StateContest.model_validate(i, from_attributes=True) for i in entity]
+
+    async def registrate_task_in_contest(self, uuid_task: str, uuid_contest: str):
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        task = await self.__task_repo.get_by_uuid(uuid_task)
+        await self.__repo.add_task_to_contest(task.id, contest.id)
+
+    async def delete_task_in_contest(self, uuid_task: str, uuid_contest: str):
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        task = await self.__task_repo.get_by_uuid(uuid_task)
+        await self.__repo.delete_task_in_contest(task.id, contest.id)
+
+    async def registrate_user_in_contest(self, id_user: int, uuid_contest: str):
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        await self.__repo.add_user_to_contest(id_user, contest.id)
+
+    async def delete_user_in_contest(self, id_user: int, uuid_contest: str):
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        await self.__repo.delete_user_in_contest(id_user, contest.id)

@@ -4,20 +4,23 @@ from datetime import datetime
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 
-from ..tables import User, TeamRegistration
-from ..Models.User import UserPost, UserUpdate, UserBase, UserGetInTeam, TeamUser, TypeUser, UserGet
+from ..tables import User
+from ..Models.User import UserPost, UserUpdate, UserBase, UserGetInTeam, TeamUser, TypeUser, UserGet, UserToContest
 from ..Models.Message import StatusUser
 
 from ..Repositories.UserRepository import UserRepository
 from ..Repositories.EduOrganizationRepository import EduOrganizationRepository
+from ..Repositories.ContestRepository import ContestsRepository
 
 
 class UsersServices:
     def __init__(self,
                  user_repository: UserRepository = Depends(),
-                 edu_repository: EduOrganizationRepository = Depends()):
+                 edu_repository: EduOrganizationRepository = Depends(),
+                 repo_contest: ContestsRepository = Depends()):
         self.__repo: UserRepository = user_repository
         self.__repo_edu: EduOrganizationRepository = edu_repository
+        self.__repo_contest: ContestsRepository = repo_contest
         self.__count_item: int = 20
 
     @property
@@ -122,3 +125,20 @@ class UsersServices:
     async def get_list_type_user(self) -> list[TypeUser]:
         list_type_user = await self.__repo.get_list_type_user()
         return [TypeUser.model_validate(i, from_attributes=True) for i in list_type_user]
+
+    async def get_list_task_flag_contest(self, uuid_contest: str, num_page: int) -> list[UserToContest]:
+        offset = (num_page - 1) * self.__count_item
+        entity = await self.__repo.get_list_user_by_user_type(offset, self.__count_item, "user")
+        contest = await self.__repo_contest.get_contest_by_uuid(uuid_contest)
+
+        list_user_to_contest = []
+        for user in entity:
+            in_contest = await self.__repo.check_user_in_contest(user.id, contest.id)
+            list_user_to_contest.append(
+                UserToContest(
+                    user=UserGet.model_validate(user, from_attributes=True),
+                    in_contest=in_contest
+                )
+            )
+
+        return list_user_to_contest

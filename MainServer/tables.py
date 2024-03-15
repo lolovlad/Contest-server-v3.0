@@ -44,18 +44,10 @@ class User(base):
     last_datatime_sign = Column(DateTime, nullable=True)
     last_ip_sign = Column(String, nullable=True)
 
-    teams = relationship("TeamRegistration",
-                         back_populates="user",
-                         collection_class=list,
-                         cascade="all, delete",
-                         lazy="joined")
-
-    contests = relationship("ContestRegistration",
-                            back_populates="user",
-                            collection_class=list,
-                            join_depth=2,
-                            lazy="joined")
-
+    #contests = relationship("Contest",
+    #                        secondary="contest_registration",
+    #                        cascade="all, delete",
+    #                        lazy="joined")
     @property
     def password(self):
         return self.hashed_password
@@ -91,77 +83,74 @@ class EducationalOrganizations(base):
     type_organizations = relationship("TypeOrganizations", lazy="joined")
 
 
-class Team(base):
-    __tablename__ = "team"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name_team = Column(String, nullable=True)
-
-    users = relationship("TeamRegistration", back_populates="team", cascade="all, delete", lazy="joined")
-    contests = relationship("ContestRegistration", back_populates="team", cascade="all, delete", lazy="joined")
-
-
-class TeamRegistration(base):
-    __tablename__ = "team_registration"
-    id = Column(Integer, autoincrement=True, primary_key=True)
-    id_user = Column(Integer, ForeignKey("user.id"))
-    id_team = Column(Integer, ForeignKey("team.id"))
-
-    user = relationship("User", back_populates="teams", lazy="joined")
-    team = relationship("Team", back_populates="users", lazy="joined")
-
-
 class ContestRegistration(base):
     __tablename__ = "contest_registration"
 
-    id = Column(Integer, autoincrement=True, primary_key=True)
-    id_user = Column(Integer, ForeignKey('user.id'))
-    id_contest = Column(Integer, ForeignKey('contest.id'))
-    id_team = Column(Integer, ForeignKey('team.id'), default=None)
+    id_user = Column(ForeignKey('user.id'), primary_key=True)
+    id_contest = Column(ForeignKey('contest.id'), primary_key=True)
     state_contest = Column(Integer, nullable=False, default=1)
 
-    user = relationship('User', join_depth=2, back_populates="contests", lazy="joined")
-    contest = relationship('Contest', join_depth=2, back_populates="users", lazy="joined")
-    team = relationship('Team', join_depth=2, back_populates="contests", lazy="joined")
+
+class TypeContest(base):
+    __tablename__ = "type_contest"
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(32), nullable=False)
+    description = Column(String(128), nullable=True)
+
+
+class StateContest(base):
+    __tablename__ = "state_contest"
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(32), nullable=False)
+    description = Column(String(128), nullable=True)
 
 
 class Contest(base):
     __tablename__ = "contest"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(UUID, nullable=False, default=uuid4())
     name_contest = Column(String, nullable=True)
     datetime_start = Column(DateTime, nullable=True)
     datetime_end = Column(DateTime, nullable=True)
 
     description = Column(LargeBinary, nullable=True, default=b'')
-
     datetime_registration = Column(DateTime, default=datetime.now())
 
-    type = Column(Integer, default=1)
+    id_type = Column(Integer, ForeignKey("type_contest.id"))
+    type = relationship("TypeContest", lazy="joined")
+    id_state_contest = Column(Integer, ForeignKey("state_contest.id"))
+    state_contest = relationship("StateContest", lazy="joined")
 
-    state_contest = Column(Integer, default=0)
+    users = relationship("User", lazy="joined", cascade="all, delete", secondary="contest_registration")
+    tasks = relationship("Task", lazy="joined", cascade="all, delete", secondary="contest_to_task")
 
-    users = relationship("ContestRegistration", back_populates="contest",
-                         collection_class=list, join_depth=2, cascade="all, delete", lazy="joined")
-    tasks = relationship('Task', backref='task', cascade="all, delete", lazy="joined")
+
+class TypeTask(base):
+    __tablename__ = "type_task"
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(32), nullable=False)
+    description = Column(String(128), nullable=True)
+
+
+class ContestToTask(base):
+    __tablename__ = "contest_to_task"
+    id_contest = Column(ForeignKey("contest.id"), primary_key=True)
+    id_task = Column(ForeignKey("task.id"), primary_key=True)
 
 
 class Task(base):
     __tablename__ = "task"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    id_contest = Column(Integer, ForeignKey('contest.id'))
-    time_work = Column(Integer, nullable=True)
-    size_raw = Column(Integer, nullable=True)
-    type_input = Column(Integer, nullable=True, default=1)
-    type_output = Column(Integer, nullable=True, default=1)
+    uuid = Column(UUID, nullable=False, default=uuid4())
     name_task = Column(String, nullable=False)
 
     description = Column(LargeBinary, nullable=False)
-    description_input = Column(LargeBinary, nullable=False)
-    description_output = Column(LargeBinary, nullable=False)
+    description_input = Column(LargeBinary, nullable=True, default=None)
+    description_output = Column(LargeBinary, nullable=True, default=None)
 
-    type_task = Column(Integer, nullable=True, default=1)
-    number_shipments = Column(Integer, nullable=True, default=100)
-
+    id_type_task = Column(Integer, ForeignKey("type_task.id"))
+    type_task = relationship("TypeTask", lazy="joined")
+    complexity = Column(Integer, default=1)
     #answers = relationship("Answer", backref="task", lazy=True)

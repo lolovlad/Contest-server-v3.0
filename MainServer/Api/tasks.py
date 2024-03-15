@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile, status, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile, status, UploadFile, Response
 
 from fastapi.responses import JSONResponse
 
@@ -6,18 +6,24 @@ from ..Models.User import UserGet, TypeUser
 from ..Services.LoginServices import get_current_user
 from ..Services.TaskServices import TaskServices
 from ..Services.FileServices import FileServices
-from ..Models.Task import TaskGet, BaseTaskSettings, TaskPut, TaskPost, TaskGetView, GetTaskSettings
+from ..Models.Task import TaskGet, BaseTaskSettings, TaskPut, TaskPost, TaskGetView, GetTaskSettings, TypeTask, TaskToContest
 
 from typing import List
 
 
-router = APIRouter(prefix="/tasks")
+router = APIRouter(prefix="/tasks", tags=["task"])
+
+
+@router.get("/type_task/", response_model=list[TypeTask])
+async def get_type_task(task_services: TaskServices = Depends()):
+    type_task_list = await task_services.get_type_task()
+    return type_task_list
 
 
 @router.post("/", responses={status.HTTP_200_OK: {"message": "ok"}})
 async def post_task(task_data: TaskPost, task_services: TaskServices = Depends(),
                     user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
+    if user.type.name == "admin":
         await task_services.add_task(task_data)
         return JSONResponse(content={"message": "ok"},
                             status_code=status.HTTP_200_OK)
@@ -32,80 +38,102 @@ async def post_settings_task(task_data: BaseTaskSettings, task_services: TaskSer
                             status_code=status.HTTP_200_OK)
 
 
-@router.put("/", responses={status.HTTP_200_OK: {"message": "ok"}})
-async def put_task(task_data: TaskPut, task_services: TaskServices = Depends(),
+@router.put("/{uuid}", responses={status.HTTP_200_OK: {"message": "ok"}})
+async def put_task(uuid: str,
+                   task_data: TaskPut,
+                   task_services: TaskServices = Depends(),
                    user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        await task_services.update_task(task_data)
+    if user.type.name == "admin":
+        await task_services.update_task(uuid, task_data)
         return JSONResponse(content={"message": "ok"},
                             status_code=status.HTTP_200_OK)
 
 
-@router.put("/settings", responses={status.HTTP_200_OK: {"message": "ok"}})
-async def put_settings_task(task_data: BaseTaskSettings, task_services: TaskServices = Depends(),
+@router.put("/settings/{uuid}", responses={status.HTTP_200_OK: {"message": "ok"}})
+async def put_settings_task(uuid: str,
+                            task_data: BaseTaskSettings,
+                            task_services: TaskServices = Depends(),
                             user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        code = await task_services.update_settings_task(task_data)
-        return JSONResponse(content={"message": code},
+    if user.type.name == "admin":
+        code = await task_services.update_settings_task(uuid, task_data)
+        return JSONResponse(content={"message": "Reset"},
                             status_code=status.HTTP_200_OK)
 
 
-@router.delete("/{id_task}", response_model=TaskGet)
-async def delete_task(id_task: int, task_services: TaskServices = Depends(),
+@router.delete("/{uuid}")
+async def delete_task(uuid: str,
+                      task_services: TaskServices = Depends(),
                       user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        task = await task_services.delete_task(id_task)
-        return task
+    if user.type.name == "admin":
+        await task_services.delete_task(uuid)
 
 
-@router.get("/get_list_task/{id_contest}", response_model=List[TaskGetView])
-async def get_list_task(id_contest: int, task_services: TaskServices = Depends(),
+@router.get("/get_list_task/", response_model=List[TaskGetView])
+async def get_list_task(response: Response,
+                        num_page: int = 1,
+                        task_services: TaskServices = Depends(),
                         user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        return task_services.get_list_task(id_contest)
+    if user.type.name == "admin":
+        count_page = await task_services.get_count_page()
+        response.headers["X-Count-Page"] = str(count_page)
+        response.headers["X-Count-Item"] = str(task_services.count_item)
+        return await task_services.get_list_task(num_page)
 
 
-@router.get("/get_task/{id_task}", response_model=TaskGet)
-async def get_task(id_task: int, task_services: TaskServices = Depends(),
+@router.get("/get_task/{uuid}", response_model=TaskGet)
+async def get_task(uuid: str,
+                   task_services: TaskServices = Depends(),
                    user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        return task_services.get_task(id_task)
+    if user.type.name == "admin":
+        return await task_services.get_task(uuid)
 
 
-@router.get("/get_settings/{id_task}", response_model=GetTaskSettings)
-async def get_settings(id_task: int, task_services: TaskServices = Depends()):
-    settings = await task_services.get_settings(id_task)
+@router.get("/get_settings/{uuid}", response_model=GetTaskSettings)
+async def get_settings(uuid: str,
+                       task_services: TaskServices = Depends()):
+    settings = await task_services.get_settings(uuid)
     return settings
 
 
-@router.post("/upload_file/{id_task}", responses={status.HTTP_200_OK: {"message": "ok"}})
-async def upload_files(id_task: int,
+@router.post("/upload_file/{uuid}", responses={status.HTTP_200_OK: {"message": "ok"}})
+async def upload_files(uuid: str,
                        file: UploadFile,
                        task_services: TaskServices = Depends(),
                        user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        code = await task_services.upload_file(id_task, file)
-        return JSONResponse(content={"message": code},
+    if user.type.name == "admin":
+        await task_services.upload_file(uuid, file)
+        return JSONResponse(content={"message": "Ok"},
                             status_code=status.HTTP_200_OK)
 
 
-@router.post("/upload_json_files/{id_task}")
-async def upload_json_files(id_task: int,
+@router.post("/upload_json_files/{uuid}")
+async def upload_json_files(uuid: str,
                             file: UploadFile,
                             task_services: TaskServices = Depends(),
                             user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        code = await task_services.upload_json_file(id_task, file)
-        return JSONResponse(content={"message": code},
+    if user.type.name == "admin":
+        code = await task_services.upload_json_file(uuid, file)
+        return JSONResponse(content={"message": "Ok"},
                             status_code=status.HTTP_200_OK)
 
 
-@router.delete("/delete_file/{id_task}/{filename}", responses={status.HTTP_200_OK: {"message": "ok"}})
+@router.delete("/delete_file/{uuid}/{filename}", responses={status.HTTP_200_OK: {"message": "ok"}})
 async def delete_file(filename: str,
-                      id_task: int,
+                      uuid: str,
                       task_services: TaskServices = Depends(),
                       user: UserGet = Depends(get_current_user)):
-    if user.type == TypeUser.ADMIN:
-        code = await task_services.delete_file(id_task, filename)
-        return JSONResponse(content={"message": code},
+    if user.type.name == "admin":
+        code = await task_services.delete_file(uuid, filename)
+        return JSONResponse(content={"message": "ok"},
                             status_code=status.HTTP_200_OK)
+
+
+@router.get("/task_flag_contest/{uuid_contest}", response_model=list[TaskToContest])
+async def task_flag_contest(response: Response,
+                            uuid_contest: str,
+                            num_page: int = 1,
+                            task_services: TaskServices = Depends()):
+    count_page = await task_services.get_count_page()
+    response.headers["X-Count-Page"] = str(count_page)
+    response.headers["X-Count-Item"] = str(task_services.count_item)
+    return await task_services.get_list_task_flag_contest(uuid_contest, num_page)

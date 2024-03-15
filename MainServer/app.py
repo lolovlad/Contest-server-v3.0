@@ -1,11 +1,5 @@
 from fastapi import FastAPI
 from .Api import router
-from fastapi_utils.tasks import repeat_every
-
-from datetime import datetime
-
-from .tables import Contest
-from .Models.Contest import TypeState
 from .settings import settings
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,7 +18,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Count-Page", "X-Count-Item-User"],
+    expose_headers=["X-Count-Page", "X-Count-Item-User", "X-Count-Item"],
 )
 
 

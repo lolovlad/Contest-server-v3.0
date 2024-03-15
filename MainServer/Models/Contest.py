@@ -1,79 +1,77 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4, field_serializer
 from datetime import datetime
 from typing import List
 from enum import Enum
 from .Task import TaskGet
 
 
-def convert_datetime_to_iso_8601_with_z_suffix(dt: datetime) -> str:
-    return dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-
-
-class TypeContest(int, Enum):
-    OLIMPIADA = 1
-    TEAM_OLIMPIADA = 2
-    HACKATHON = 3
-
-
-class TypeState(int, Enum):
-    REGISTERED = 0
-    CONFIRMED = 1
-    GOING_ON = 2
+class StateUserInContest(int, Enum):
+    WORKS = 1
+    BANNED = 2
     FINISHED = 3
 
-
 class UserContest(BaseModel):
+    pass
+
+
+class TypeContest(BaseModel):
     id: int
-    sename: str
     name: str
-    secondname: str
-    id_team: int = 0
+    description: str
+
+
+class StateContest(BaseModel):
+    id: int
+    name: str
+    description: str
 
 
 class BaseContest(BaseModel):
     name_contest: str
-    type: TypeContest = 1
-
-    state_contest: TypeState = 0
-
-    class Config:
-        json_encoders = {
-            # custom output conversion for datetime
-            datetime: convert_datetime_to_iso_8601_with_z_suffix
-        }
 
 
-class ContestGet(BaseContest):
-    id: int
+class BaseGetContest(BaseContest):
+    uuid: UUID4
+    @field_serializer('uuid')
+    def serialize_uuid(self, uuid: UUID4, _info):
+        return str(uuid)
+
+
+class ContestGet(BaseGetContest):
     datetime_start: datetime
     datetime_end: datetime
     description: str
     datetime_registration: datetime = datetime.now()
-    users: List[UserContest]
-    tasks: List[TaskGet]
+    type: TypeContest
+    state_contest: StateContest
+    users: list = None
+    tasks: list = None
+
+
+class ContestCardView(BaseGetContest):
+    type: TypeContest
+    state_contest: StateContest
+    datetime_start: datetime
+    datetime_end: datetime
 
 
 class ContestPost(BaseContest):
     datetime_start: str
     datetime_end: str
     description: str
+    id_type: int
+    id_state_contest: int
 
 
 class ContestPutUsers(BaseModel):
     id: int
-    users: List[UserContest]
+    #users: List[UserContest]
 
 
 class ContestUpdate(BaseContest):
-    id: int
     datetime_start: str
     datetime_end: str
     description: str
-
-
-class ContestCardView(BaseContest):
-    id: int
-    is_view: bool
 
 
 class TotalContest(BaseModel):
@@ -92,3 +90,18 @@ class ResultContest(BaseModel):
     count_task: int = 0,
     users: List[dict] = []
 
+
+class ContestToTask(BaseModel):
+    uuid_task: str
+    uuid_contest: str
+
+
+class ContestToUser(BaseModel):
+    id_user: int
+    id_contest: int
+    state_contest: StateUserInContest
+
+
+class ContestToUserAdd(BaseModel):
+    id_user: int
+    uuid_contest: str

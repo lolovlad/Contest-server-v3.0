@@ -3,57 +3,58 @@ from typing import List
 from sqlalchemy.orm import Session
 from Classes.PathExtend import PathExtend
 
-from ..Models.Task import TaskGet, TaskPost, TaskPut, FileUpload, BaseTaskSettings, GetTaskSettings, TaskGetView, TypeInput
+from ..Models.Task import TaskGet, TaskPost, TaskPut, FileUpload, \
+    BaseTaskSettings, GetTaskSettings, TaskGetView, TypeInput, TypeTask, TaskToContest
 from ..tables import Task
 from ..Repositories.TaskRepository import TaskRepository
+from ..Repositories.ContestRepository import ContestsRepository
 from ..settings import settings
-
-import os
-
-
-'''async def read_iterfile(file: UploadFile, id_task: int, chunk_size: int = 1024):
-    split_data = os.path.splitext(file.filename)
-    filename = split_data[0]
-    extension = split_data[1][1:]
-
-    yield file_pb2.UploadFileRequest(metadata=file_pb2.MetaData(name=filename, extend=extension, id_task=id_task))
-    while True:
-        chunk = file.file.read(chunk_size)
-        if chunk:
-            file_data_chunk = file_pb2.FileData(byte_chunk=chunk)
-            entry_request = file_pb2.UploadFileRequest(file=file_data_chunk)
-            yield entry_request
-        else:
-            return'''
 
 
 class TaskServices:
-    def __init__(self, repo: TaskRepository = Depends()):
+    def __init__(self,
+                 repo: TaskRepository = Depends(),
+                 repo_contest: ContestsRepository = Depends()):
         self.__repo: TaskRepository = repo
+        self.__repo_contest: ContestsRepository = repo_contest
+        self.__count_item: int = 20
 
-    async def get_list_task(self, id_contest: int) -> List[Task]:
-        entity = await self.__repo.get_list_by_contest(id_contest)
-        return entity
+    @property
+    def count_item(self) -> int:
+        return self.__count_item
 
-    async def get_task(self, id_task: int) -> Task:
-        entity = await self.__repo.get(id_task)
-        return entity
+    async def get_count_page(self) -> int:
+        count_row = await self.__repo.count_row()
+        i = int(count_row % self.__count_item != 0)
+        return count_row // self.__count_item + i
+
+    async def get_type_task(self) -> list[TypeTask]:
+        entity = await self.__repo.get_type_task()
+        return [TypeTask.model_validate(i, from_attributes=True) for i in entity]
+
+    async def get_list_task(self, number_page: int) -> List[TaskGetView]:
+        offset = (number_page - 1) * self.__count_item
+        entity = await self.__repo.get_list_task(offset, self.__count_item)
+        return [TaskGetView.model_validate(i, from_attributes=True) for i in entity]
+
+    async def get_task(self, uuid: str) -> TaskGet:
+        entity = await self.__repo.get_by_uuid(uuid)
+        return TaskGet.model_validate(entity, from_attributes=True)
 
     async def add_task(self, task_data: TaskPost):
         task = await self.__repo.add(task_data)
-        setting = BaseTaskSettings(id=task.id,
-                                   time_work=1,
+        setting = BaseTaskSettings(time_work=1,
                                    size_raw=32,
                                    type_input=1,
                                    type_output=1,
                                    number_shipments=100)
-        response = await self.__repo.add_settings(setting)
+        await self.__repo.add_settings(task.id, setting)
 
-    async def add_task_settings(self, task_data: BaseTaskSettings):
-        response = await self.__repo.add_settings(task_data)
+    #async def add_task_settings(self, task_data: BaseTaskSettings):
+    #    response = await self.__repo.add_settings(task_data)
 
-    async def update_task(self, task_data: TaskPut) -> Task:
-        task = await self.__repo.get(task_data.id)
+    async def update_task(self, uuid: str, task_data: TaskPut) -> Task:
+        task = await self.__repo.get_by_uuid(uuid)
         for field, val in task_data:
             if field in ("description", "description_input", "description_output"):
                 setattr(task, field, val.encode())
@@ -62,52 +63,51 @@ class TaskServices:
         await self.__repo.update(task)
         return task
 
-    async def update_settings_task(self, task_data: BaseTaskSettings):
-        response = await self.__repo.update_settings(task_data)
-
-    async def delete_task(self, id_task: int):
-        await self.__repo.delete(id_task)
-
-    async def get_settings(self, id_task: int) -> GetTaskSettings:
-        response = await self.__repo.get_setting(id_task)
+    async def update_settings_task(self, uuid: str, task_data: BaseTaskSettings):
+        task = await self.__repo.get_by_uuid(uuid)
+        response = await self.__repo.update_settings(task.id, task_data)
         return response
 
-    async def upload_file(self, id_task: int, file: UploadFile):
-        pass
-        '''async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            stub = file_pb2_grpc.FileApiStub(channel)
-            call = stub.UploadFile()
-            async for request in read_iterfile(file, id_task):
-                await call.write(request)
-            await call.done_writing()
-            response = await call
-            return response.code'''
+    async def delete_task(self, uuid: str):
+        entity = await self.__repo.get_by_uuid(uuid)
+        await self.__repo.delete_settings(entity.id)
+        await self.__repo.delete(entity.id)
 
-    async def delete_file(self, id_task: int, name_file: str):
-        pass
-        ''' async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            stud = file_pb2_grpc.FileApiStub(channel)
+    async def get_settings(self, uuid: str) -> GetTaskSettings:
+        task = await self.__repo.get_by_uuid(uuid)
+        response = await self.__repo.get_setting(task.id)
+        return response
 
-            split_data = os.path.splitext(name_file)
-            filename = split_data[0]
-            extension = split_data[1][1:]
+    async def upload_file(self, uuid: str, file: UploadFile):
+        task = await self.__repo.get_by_uuid(uuid)
+        response = await self.__repo.add_file(task.id, file)
 
-            response = await stud.DeleteFile(file_pb2.MetaData(name=filename, extend=extension, id_task=id_task))
-            return response.code'''
+    async def delete_file(self, uuid: str, name_file: str):
+        task = await self.__repo.get_by_uuid(uuid)
+        response = await self.__repo.delete_file(task.id, name_file)
 
-    async def upload_json_file(self, id_task: int, file: UploadFile):
-        pass
-        '''name_json = PathExtend.create_file_name("json", start_name_file=f"task_test_{id_task}")
-        async with grpc.aio.insecure_channel(self.__ip_review) as channel:
-            stub = file_pb2_grpc.FileApiStub(channel)
-            file.filename = name_json
-            call = stub.UploadFile()
-            async for request in read_iterfile(file, id_task):
-                await call.write(request)
-            await call.done_writing()
-            response = await call
-            return response.code'''
+    async def upload_json_file(self, uuid: str, file: UploadFile):
+        task = await self.__repo.get_by_uuid(uuid)
+        response = await self.__repo.add_json_file(task.id, file)
 
     async def delete_folder(self, id_task: int):
         folder_name = PathExtend(f"Task_Id_{id_task}")
         folder_name.delete_dir()
+
+    async def get_list_task_flag_contest(self, uuid_contest: str, num_page: int) -> list[TaskToContest]:
+        offset = (num_page - 1) * self.__count_item
+        entity = await self.__repo.get_list_task(offset, self.__count_item)
+
+        contest = await self.__repo_contest.get_contest_by_uuid(uuid_contest)
+
+        list_task_to_contest = []
+        for task in entity:
+            in_contest = await self.__repo.check_task_in_contest(task.id, contest.id)
+            list_task_to_contest.append(
+                TaskToContest(
+                    task=TaskGetView.model_validate(task, from_attributes=True),
+                    in_contest=in_contest
+                )
+            )
+
+        return list_task_to_contest

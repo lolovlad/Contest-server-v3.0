@@ -1,14 +1,14 @@
 from httpx import AsyncClient
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from ..tables import Contest, ContestRegistration
+from sqlalchemy import select, func, and_
+from ..tables import Contest, ContestRegistration, TypeContest, StateContest, ContestToTask
 
 from fastapi import Depends
 
 from ..review_service import get_channel
-from ..Models.Contest import *
-from typing import List, Any
+from ..Models.Contest import TotalContest, ContestPutUsers
+from typing import List
 
 from ..async_database import get_session
 from json import loads
@@ -20,6 +20,11 @@ class ContestsRepository:
                  session: AsyncSession = Depends(get_session)):
         self.__client: AsyncClient = client
         self.__session: AsyncSession = session
+
+    async def count_row(self) -> int:
+        response = select(func.count(Contest.id))
+        result = await self.__session.execute(response)
+        return result.scalars().first()
 
     async def __get_reg_users(self, id_contest: int) -> List[ContestRegistration]:
         response = select(ContestRegistration).where(ContestRegistration.id_contest == id_contest)
@@ -78,10 +83,15 @@ class ContestsRepository:
         result = await self.__session.execute(response)
         return result.scalars().all()
 
-    async def get_list_contest(self) -> List[Contest]:
+    async def get_list_contest(self, start: int, limit: int, type_contest: str = None) -> List[Contest]:
         response = select(Contest)
+        if type_contest is None:
+            response = select(Contest)
+
+        response = response.offset(start).fetch(limit).order_by(Contest.id)
+
         result = await self.__session.execute(response)
-        return result.scalars().all()
+        return result.unique().scalars().all()
 
     async def add(self, contest: Contest):
         try:
@@ -125,3 +135,73 @@ class ContestsRepository:
         query = select(ContestRegistration).where(ContestRegistration.id_user == id_user)
         response = await self.__session.execute(query)
         return response.scalars().all()
+
+    async def get_type_contest(self) -> list[TypeContest]:
+        query = select(TypeContest)
+        response = await self.__session.execute(query)
+        return response.scalars().all()
+
+    async def get_state_contest(self) -> list[StateContest]:
+        query = select(StateContest)
+        response = await self.__session.execute(query)
+        return response.scalars().all()
+
+    async def get_contest_by_uuid(self, uuid: str) -> Contest | None:
+        query = select(Contest).where(Contest.uuid == uuid)
+        response = await self.__session.execute(query)
+        return response.unique().scalars().one_or_none()
+
+    async def add_task_to_contest(self, id_task: int, id_contest: int):
+        try:
+            self.__session.add(ContestToTask(
+                id_contest=id_contest,
+                id_task=id_task
+            ))
+            await self.__session.commit()
+        except:
+            await self.__session.rollback()
+            raise Exception
+
+    async def delete_task_in_contest(self, id_task: int, id_contest: int):
+        query = select(ContestToTask).where(
+            and_(
+                ContestToTask.id_task == id_task,
+                ContestToTask.id_contest == id_contest
+            )
+        )
+        response = await self.__session.execute(query)
+        entity = response.scalars().first()
+        try:
+            await self.__session.delete(entity)
+            await self.__session.commit()
+        except:
+            await self.__session.rollback()
+            raise Exception
+
+    async def add_user_to_contest(self, id_user: int, id_contest: int):
+        try:
+            self.__session.add(ContestRegistration(
+                id_contest=id_contest,
+                id_user=id_user,
+                state_contest=1
+            ))
+            await self.__session.commit()
+        except:
+            await self.__session.rollback()
+            raise Exception
+
+    async def delete_user_in_contest(self, id_user: int, id_contest: int):
+        query = select(ContestRegistration).where(
+            and_(
+                ContestRegistration.id_user == id_user,
+                ContestRegistration.id_contest == id_contest
+            )
+        )
+        response = await self.__session.execute(query)
+        entity = response.scalars().first()
+        try:
+            await self.__session.delete(entity)
+            await self.__session.commit()
+        except:
+            await self.__session.rollback()
+            raise Exception

@@ -1,11 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4, field_serializer
 from typing import List
 from enum import Enum
 
 from .TaskTestSettings import Test, SettingsTest
 
 
-class TypeTask(int, Enum):
+class TypeTask(BaseModel):
+    id: int
+    name: str
+    description: str
+
+
+class Complexity(int, Enum):
     A = 1
     B = 2
     C = 3
@@ -25,16 +31,18 @@ class TypeOutput(int, Enum):
 
 
 class BaseTask(BaseModel):
-    id_contest: int
     name_task: str
-    description: str
-    description_input: str
-    description_output: str
-    type_task: TypeTask
+    complexity: Complexity
+
+
+class BaseGetTask(BaseTask):
+    uuid: UUID4
+    @field_serializer('uuid')
+    def serialize_uuid(self, uuid: UUID4, _info):
+        return str(uuid)
 
 
 class BaseTaskSettings(BaseModel):
-    id: int
     time_work: int
     size_raw: int
     type_input: TypeInput = 1
@@ -46,19 +54,24 @@ class GetTaskSettings(BaseTaskSettings):
     files: List[str] = []
 
 
-class TaskGet(BaseTask):
-    id: int
-
-    class Config:
-        orm_mode = True
+class TaskGet(BaseGetTask):
+    type_task: TypeTask
+    description: str
+    description_input: str = None
+    description_output: str = None
 
 
 class TaskPost(BaseTask):
-    pass
+    id_type_task: int
+    description: str
+    description_input: str = None
+    description_output: str = None
 
 
 class TaskPut(BaseTask):
-    id: int
+    description: str
+    description_input: str = None
+    description_output: str = None
 
 
 class FileUpload(BaseModel):
@@ -68,13 +81,8 @@ class FileUpload(BaseModel):
     task: TaskGet
 
 
-class TaskGetView(BaseModel):
-    id: int
-    name_task: str
+class TaskGetView(BaseGetTask):
     type_task: TypeTask
-
-    class Config:
-        orm_mode = True
 
 
 class TaskViewUser(TaskGetView):
@@ -91,3 +99,8 @@ class GetListTaskViewUser(BaseModel):
 class TaskAndTest(TaskGet, GetTaskSettings):
     view_settings: List[SettingsTest] = []
     view_test: List[Test] = []
+
+
+class TaskToContest(BaseModel):
+    task: TaskGetView
+    in_contest: bool

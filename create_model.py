@@ -1,8 +1,26 @@
-from MainServer.tables import User, EducationalOrganizations, TypeUser, TypeOrganizations
+from MainServer.tables import User, EducationalOrganizations, TypeUser, TypeOrganizations, TypeContest, StateContest, TypeTask
 from MainServer.async_database import async_session
 from MainServer.Models.EducationalOrganizations import TypeOrganization
 from asyncio import run
 from uuid import uuid4
+
+
+async def create_task_context():
+    async with async_session() as session:
+        type_task = [
+            TypeTask(
+                name="programming",
+                description="программирование"
+            ),
+            TypeTask(
+                name="detailed_response",
+                description="развернутый ответ"
+            )
+        ]
+
+        session.add_all(type_task)
+
+        await session.commit()
 
 
 async def create_model():
@@ -73,8 +91,50 @@ async def create_model():
         await session.commit()
 
 
+async def create_contest_context():
+    async with async_session() as session:
+        type_contest = [
+            TypeContest(
+                name="olympiad",
+                description="Олимпиада"
+            ),
+            TypeContest(
+                name="hackathon",
+                description="хакатон"
+            ),
+            TypeContest(
+                name="manual_test",
+                description="тест с ручной проверкой"
+            )
+        ]
+        state_contest = [
+            StateContest(
+                name="registered",
+                description="Зарегистрирован"
+            ),
+            StateContest(
+                name="confirmed",
+                description="Подтверждено"
+            ),
+            StateContest(
+                name="passes",
+                description="Проходит"
+            ),
+            StateContest(
+                name="completed",
+                description="Завершено"
+            )
+        ]
+        session.add_all(type_contest)
+        session.add_all(state_contest)
+
+        await session.commit()
+
+
 async def main():
-    await create_model()
+    #await create_model()
+    #await create_contest_context()
+    await create_task_context()
 
 
 run(main())

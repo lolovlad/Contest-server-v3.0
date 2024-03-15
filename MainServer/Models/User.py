@@ -54,3 +54,8 @@ class UserGetInTeam(BaseModel):
     sename: str
     secondname: str
     teams: List[TeamUser]
+
+
+class UserToContest(BaseModel):
+    user: UserGet
+    in_contest: bool

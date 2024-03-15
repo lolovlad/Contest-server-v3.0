@@ -1,14 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from ..tables import User, ContestRegistration, TeamRegistration, TypeUser
+from sqlalchemy import select, func, and_
+from ..tables import User, ContestRegistration, TypeUser
 from ..async_database import get_session
-from ..Models.User import UserPost
 
 from fastapi import Depends
 
-from typing import List, Any
-
-from ..Models.Message import TypeStatus
+from typing import List
 
 
 class UserRepository:
@@ -35,7 +32,7 @@ class UserRepository:
         if type_user == "all":
             response = select(User)
         elif type_user == "user":
-            response = select(User).where(User.type == 2)
+            response = select(User).join(TypeUser).where(TypeUser.name != "admin")
         else:
             response = select(User).where(User.type == 1)
 
@@ -47,13 +44,6 @@ class UserRepository:
         response = select(User).where(User.login == login)
         result = await self.__session.execute(response)
         return result.scalars().first()
-
-    async def get_list_user_in_team(self, id_team: int) -> List[User]:
-        response = select(User, TeamRegistration)\
-            .join(User.teams)\
-            .where(TeamRegistration.id_team != id_team)
-        result = await self.__session.execute(response)
-        return result.scalars().all()
 
     async def add(self, user: User):
         try:
@@ -92,3 +82,14 @@ class UserRepository:
     async def get_type_user_by_id(self, id_type_user: int) -> TypeUser:
         entity = await self.__session.get(TypeUser, id_type_user)
         return entity
+
+    async def check_user_in_contest(self, id_user: int, id_contest: int) -> bool:
+        query = select(ContestRegistration).where(and_(
+            ContestRegistration.id_user == id_user,
+            ContestRegistration.id_contest == id_contest
+            )
+        )
+        response = await self.__session.execute(query)
+        entity = response.scalars().one_or_none()
+        return entity != None
+

@@ -1,14 +1,15 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from ..tables import Task
+from sqlalchemy import select, func, and_
+from ..tables import Task, TypeTask, ContestToTask
 
-from fastapi import Depends
+from fastapi import Depends, UploadFile
 
 from ..review_service import get_channel
-from ..Models.Task import *
+from ..Models.Task import TaskViewUser, GetTaskSettings, TaskPost, BaseTaskSettings
 from ..Models.TaskTestSettings import Test, SettingsTest
 from typing import List
+from uuid import uuid4
 
 from ..async_database import get_session
 
@@ -36,6 +37,21 @@ class TaskRepository:
         self.__session: AsyncSession = session
         self.__client: AsyncClient = client
 
+    async def count_row(self) -> int:
+        response = select(func.count(Task.id))
+        result = await self.__session.execute(response)
+        return result.scalars().first()
+
+    async def get_list_task(self, offset: int, limit: int) -> list[Task]:
+        response = select(Task).offset(offset).fetch(limit).order_by(Task.id)
+        result = await self.__session.execute(response)
+        return result.scalars().all()
+
+    async def get_type_task(self) -> list[TypeTask]:
+        response = select(TypeTask)
+        result = await self.__session.execute(response)
+        return result.scalars().all()
+
     async def get_list_task_view_by_id_contest(self, id_contest: int) -> List[TaskViewUser]:
         response = select(Task).where(Task.id_contest == id_contest)
         result = await self.__session.execute(response)
@@ -53,8 +69,7 @@ class TaskRepository:
     async def get_setting(self, id_task: int) -> GetTaskSettings:
         response_settings = await self.__client.get(f"settings/get_settings/{id_task}")
         json_response = response_settings.json()
-        task_settings = GetTaskSettings(id=id_task,
-                                        time_work=json_response["time_work"],
+        task_settings = GetTaskSettings(time_work=json_response["time_work"],
                                         size_raw=json_response["size_raw"],
                                         number_shipments=json_response["number_shipments"],
                                         type_input=json_response["type_input"],
@@ -64,12 +79,13 @@ class TaskRepository:
         return task_settings
 
     async def add(self, task_data: TaskPost) -> Task:
-        entity = Task(id_contest=task_data.id_contest,
+        entity = Task(uuid=uuid4(),
                       name_task=task_data.name_task,
                       description=task_data.description.encode(),
                       description_input=task_data.description_input.encode(),
                       description_output=task_data.description_output.encode(),
-                      type_task=task_data.type_task)
+                      id_type_task=task_data.id_type_task,
+                      complexity=task_data.complexity)
         try:
             self.__session.add(entity)
             await self.__session.commit()
@@ -77,12 +93,14 @@ class TaskRepository:
         except:
             await self.__session.rollback()
 
-    async def add_settings(self, task_settings_data: BaseTaskSettings):
-        response = await self.__client.post(f"settings/", json=task_settings_data.model_dump())
+    async def add_settings(self, id_task: int, task_settings_data: BaseTaskSettings):
+        response = await self.__client.post(f"settings/{id_task}", json=task_settings_data.model_dump())
         return response
 
-    async def update_settings(self, task_settings_data: BaseTaskSettings):
-        response = await self.__client.put(f"settings/", json=task_settings_data.model_dump())
+    async def update_settings(self, id_task: int, task_settings_data: BaseTaskSettings):
+        data = task_settings_data.model_dump()
+        data["id"] = id_task
+        response = await self.__client.put(f"settings/", json=data)
         return response
 
     async def update(self, task: Task):
@@ -104,3 +122,30 @@ class TaskRepository:
             await self.__session.commit()
         except:
             await self.__session.rollback()
+
+    async def get_by_uuid(self, uuid: str) -> Task:
+        query = select(Task).where(Task.uuid == uuid)
+        response = await self.__session.execute(query)
+        return response.scalars().first()
+
+    async def add_json_file(self, id_task: int, file: UploadFile):
+        response = await self.__client.post(f"files/upload_json_file/{id_task}", files={'file': (file.filename, file.file)})
+        return response
+
+    async def add_file(self, id_task: int, file: UploadFile):
+        response = await self.__client.post(f"files/upload_file/{id_task}", files={'file': (file.filename, file.file)})
+        return response
+
+    async def delete_file(self, id_task: int, filename: str):
+        response = await self.__client.delete(f"files/delete_file/{id_task}/{filename}")
+        return response
+
+    async def check_task_in_contest(self, id_task: int, id_contest: int) -> bool:
+        query = select(ContestToTask).where(and_(
+            ContestToTask.id_task == id_task,
+            ContestToTask.id_contest == id_contest
+            )
+        )
+        response = await self.__session.execute(query)
+        entity = response.scalars().one_or_none()
+        return entity != None
