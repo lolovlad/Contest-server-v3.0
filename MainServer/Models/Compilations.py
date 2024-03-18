@@ -9,3 +9,9 @@ class BaseCompilations(BaseModel):
 
 class GetCompilations(BaseCompilations):
     id: int
+
+
+class GetNewCompilation(BaseModel):
+    id: int
+    name_compilation: str
+    extension: str

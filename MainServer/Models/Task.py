@@ -43,11 +43,11 @@ class BaseGetTask(BaseTask):
 
 
 class BaseTaskSettings(BaseModel):
-    time_work: int
-    size_raw: int
+    time_work: int = 1
+    size_raw: int = 32
     type_input: TypeInput = 1
     type_output: TypeOutput = 1
-    number_shipments: int
+    number_shipments: int = 100
 
 
 class GetTaskSettings(BaseTaskSettings):
@@ -86,11 +86,8 @@ class TaskGetView(BaseGetTask):
 
 
 class TaskViewUser(TaskGetView):
+    id: int
     last_answer: str = "-"
-
-    class Config:
-        orm_mode = True
-
 
 class GetListTaskViewUser(BaseModel):
     list_task: List[TaskViewUser]

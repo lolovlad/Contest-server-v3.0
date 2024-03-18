@@ -13,5 +13,5 @@ class CompilationsRepository:
         self.__client: AsyncClient = client
 
     async def get_list(self) -> List[GetCompilations]:
-        response = await self.__client.get("compiler/list/")
+        response = await self.__client.get("compiler/list")
         return [GetCompilations.model_validate(compiler) for compiler in response.json()]

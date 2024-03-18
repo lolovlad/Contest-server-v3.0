@@ -1,5 +1,5 @@
 from ..Models.Contest import ContestGet, ContestPost, ContestPutUsers, ContestUpdate, \
-    ContestCardView, ResultContest, TypeContest, StateContest, ContestToTask, ContestToUserAdd
+    ContestCardView, ResultContest, TypeContest, StateContest, ContestToTask, ContestToUserAdd, ContestUserMenu, ContestUserAndTask
 
 from fastapi import Depends, APIRouter, status, Response
 from fastapi.responses import JSONResponse
@@ -36,10 +36,10 @@ async def get_list_contest(
     return contest_list
 
 
-@router.get("/contests_by_user_id", response_model=List[ContestCardView])
-def contests_by_user_id(user: UserGet = Depends(get_current_user),
-                        contest_services: ContestsServices = Depends()):
-    return contest_services.get_list_contest_by_user_id(user.id)
+@router.get("/contests_by_user_id", response_model=list[ContestUserMenu])
+async def contests_by_user_id(user: UserGet = Depends(get_current_user),
+                              contest_services: ContestsServices = Depends()):
+    return await contest_services.get_list_contest_by_user_id(user.id)
 
 
 @router.get("/{uuid}", response_model=ContestGet)
@@ -83,16 +83,17 @@ def registration_users_contest(contest_data: ContestPutUsers, contest_services: 
         contest_services.add_users_contest(contest_data)
 
 
-@router.get("/report_total/{id_contest}", response_model=ResultContest)
-async def get_report_total(id_contest: int, contest_services: ContestsServices = Depends()):
-    return await contest_services.get_report_total(id_contest)
+@router.get("/report_total/{uuid_contest}", response_model=ResultContest)
+async def get_report_total(uuid_contest: str,
+                           contest_services: ContestsServices = Depends()):
+    return await contest_services.get_report_total(uuid_contest)
 
 
-@router.put("/update_state_user_in_contest/{id_contest}", responses={status.HTTP_200_OK: {"message": "ok"}})
-async def update_state_user_in_contest(id_contest: int,
+@router.put("/update_state_user_in_contest/{uuid_contest}", responses={status.HTTP_200_OK: {"message": "ok"}})
+async def update_state_user_in_contest(uuid_contest: str,
                                        contest_services: ContestsServices = Depends(),
                                        user: UserGet = Depends(get_current_user)):
-    await contest_services.update_state_user_contest(id_contest, user.id)
+    await contest_services.update_state_user_contest(uuid_contest, user.id)
     return JSONResponse(content={"message": "ok"},
                         status_code=status.HTTP_200_OK)
 
@@ -137,3 +138,13 @@ async def delete_registration_task_to_contest(
     if user.type.name == "admin":
         await contest_services.delete_user_in_contest(id_user,
                                                       uuid_contest)
+
+
+@router.get("/contest_controller/{uuid_contest}", response_model=ContestUserAndTask)
+async def get_contest_controller(
+        uuid_contest: str,
+        contest_services: ContestsServices = Depends(),
+        user: UserGet = Depends(get_current_user)):
+    if user.type.name == "admin":
+        contest = await contest_services.get_contest_controller(uuid_contest)
+        return contest

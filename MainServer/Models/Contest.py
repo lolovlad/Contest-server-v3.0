@@ -2,13 +2,15 @@ from pydantic import BaseModel, UUID4, field_serializer
 from datetime import datetime
 from typing import List
 from enum import Enum
-from .Task import TaskGet
+from .Task import TaskGetView
+from .User import UserGet
 
 
 class StateUserInContest(int, Enum):
     WORKS = 1
     BANNED = 2
     FINISHED = 3
+
 
 class UserContest(BaseModel):
     pass
@@ -44,8 +46,8 @@ class ContestGet(BaseGetContest):
     datetime_registration: datetime = datetime.now()
     type: TypeContest
     state_contest: StateContest
-    users: list = None
-    tasks: list = None
+    #users: list[] = None
+    #tasks: list[] = None
 
 
 class ContestCardView(BaseGetContest):
@@ -53,6 +55,11 @@ class ContestCardView(BaseGetContest):
     state_contest: StateContest
     datetime_start: datetime
     datetime_end: datetime
+
+
+class ContestUserMenu(BaseModel):
+    contest: ContestCardView
+    is_view: bool
 
 
 class ContestPost(BaseContest):
@@ -79,8 +86,6 @@ class TotalContest(BaseModel):
     total: dict
     sum_point: int
     name_contest: str = ""
-    description: str
-    type_contest: TypeContest
 
 
 class ResultContest(BaseModel):
@@ -105,3 +110,12 @@ class ContestToUser(BaseModel):
 class ContestToUserAdd(BaseModel):
     id_user: int
     uuid_contest: str
+
+
+class ContestUserAndTask(BaseGetContest):
+    type: TypeContest
+    state_contest: StateContest
+    datetime_start: datetime
+    datetime_end: datetime
+    users: list[UserGet]
+    tasks: list[TaskGetView]

@@ -89,6 +89,7 @@ class ContestRegistration(base):
     id_user = Column(ForeignKey('user.id'), primary_key=True)
     id_contest = Column(ForeignKey('contest.id'), primary_key=True)
     state_contest = Column(Integer, nullable=False, default=1)
+    contest = relationship("Contest", lazy="joined")
 
 
 class TypeContest(base):

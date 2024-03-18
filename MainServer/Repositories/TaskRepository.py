@@ -26,7 +26,7 @@ class JsonTestRepository:
         })
 
         model_settings = [SettingsTest.model_validate(obj) for obj in response_settings.json()]
-        model_chunk = [Test.model_validate(obj) for obj in response_chunk.json()]
+        model_chunk = [Test.model_validate(obj) for obj in response_chunk.json()["tests"]]
         return model_settings, model_chunk
 
 
@@ -55,7 +55,7 @@ class TaskRepository:
     async def get_list_task_view_by_id_contest(self, id_contest: int) -> List[TaskViewUser]:
         response = select(Task).where(Task.id_contest == id_contest)
         result = await self.__session.execute(response)
-        return [TaskViewUser.from_orm(obj) for obj in result.scalars().all()]
+        return [TaskViewUser.model_validate(obj, from_attributes=True) for obj in result.scalars().all()]
 
     async def get_list_by_contest(self, id_contest: int) -> List[Task]:
         response = select(Task).where(id_contest == id_contest)

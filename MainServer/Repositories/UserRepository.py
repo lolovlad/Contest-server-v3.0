@@ -90,6 +90,6 @@ class UserRepository:
             )
         )
         response = await self.__session.execute(query)
-        entity = response.scalars().one_or_none()
+        entity = response.unique().scalars().one_or_none()
         return entity != None
 

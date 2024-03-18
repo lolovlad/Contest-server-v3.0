@@ -118,9 +118,10 @@ class UsersServices:
             "user_not_in_contest": users_not_reg
         }
 
-    async def status_user(self, id_contest: int, id_user: int) -> StatusUser:
-        state = await self.__repo.state_user(id_contest, id_user)
-        return StatusUser(**{"id_user": id_user, "status": state})
+    async def status_user(self, uuid_contest: str, id_user: int) -> StatusUser:
+        contest = await self.__repo_contest.get_contest_by_uuid(uuid_contest)
+        state = await self.__repo.state_user(contest.id, id_user)
+        return StatusUser.model_validate({"id_user": id_user, "status": state})
 
     async def get_list_type_user(self) -> list[TypeUser]:
         list_type_user = await self.__repo.get_list_type_user()

@@ -1,6 +1,7 @@
 from fastapi import Depends
 from ..Models.Contest import ContestGet, ContestPost, UserContest, \
-    ContestPutUsers, ContestUpdate, ContestCardView, TypeContest, ResultContest, TotalContest, StateContest
+    ContestPutUsers, ContestUpdate, ContestCardView, TypeContest, \
+    ResultContest, TotalContest, StateContest, ContestUserMenu, ContestUserAndTask
 from ..Models.User import StateUser
 
 from typing import List
@@ -114,7 +115,7 @@ class ContestsServices:
             ))
         return card_view
 
-    async def get_list_contest_by_user_id(self, id_user: int) -> List[ContestCardView]:
+    async def get_list_contest_by_user_id(self, id_user: int) -> list[ContestUserMenu]:
         contests_reg = await self.__repo.get_contest_registration(id_user)
         card_view = []
         for contest_registration in contests_reg:
@@ -123,28 +124,23 @@ class ContestsServices:
             if contest_registration.state_contest == StateUser.BANNED:
                 is_view = False
 
-            if contest_registration.contest.state_contest != TypeState.GOING_ON:
+            if contest_registration.contest.state_contest.name != "passes":
                 is_view = False
 
-            card_view.append(ContestCardView(
-                id=contest_registration.id_contest,
-                name_contest=contest_registration.contest.name_contest,
-                type=contest_registration.contest.type,
-                state_contest=contest_registration.contest.state_contest,
+            contest_model = ContestCardView.model_validate(contest_registration.contest, from_attributes=True)
+            card_view.append(ContestUserMenu(
+                contest=contest_model,
                 is_view=is_view
             ))
         return card_view
 
-    async def get_report_total(self, id_contest: int) -> ResultContest:
-        contest = await self.__repo.get_contest(id_contest)
+    async def get_report_total(self, uuid_contest: str) -> ResultContest:
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
 
-        if contest.type == TypeContest.OLIMPIADA:
-            set_id = await self.__repo.set_id_users(id_contest)
+        set_id = await self.__repo.set_id_users(contest.id)
 
-        else:
-            set_id = await self.__repo.set_id_team(id_contest)
         reports = ResultContest()
-        result = await self.__repo.get_list_report_total(id_contest)
+        result = await self.__repo.get_list_report_total(contest.id)
 
         reports.name_contest = contest.name_contest
         reports.type_contest = contest.type
@@ -153,12 +149,8 @@ class ContestsServices:
 
         for id_entity in set_id:
             name = ""
-            if contest.type == TypeContest.OLIMPIADA:
-                user = await self.__user_repo.get_user(id_entity)
-                name = f"{user.sename} {user.name[0]}. {user.secondname[0]}."
-            else:
-                team = await self.__team_repo.get_team(id_entity)
-                name = team.name_team
+            user = await self.__user_repo.get_user(id_entity)
+            name = f"{user.sename} {user.name[0]}. {user.secondname[0]}."
 
             if str(id_entity) not in result:
                 reports.users.append({
@@ -174,12 +166,13 @@ class ContestsServices:
                 target_res.name = name
                 target_res_dict = target_res.dict()
                 target_res_dict.pop("name_contest")
-                target_res_dict.pop("type_contest")
                 reports.users.append(target_res_dict)
+        reports.users = list(sorted(reports.users, key=lambda i: i["sum_point"], reverse=True))
         return reports
 
-    async def update_state_user_contest(self, id_contest: int, id_user: int):
-        await self.__repo.update_user_state_contest(id_contest, id_user)
+    async def update_state_user_contest(self, uuid_contest: str, id_user: int):
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        await self.__repo.update_user_state_contest(contest.id, id_user)
 
     async def get_type_contest(self) -> list[TypeContest]:
         entity = await self.__repo.get_type_contest()
@@ -206,3 +199,7 @@ class ContestsServices:
     async def delete_user_in_contest(self, id_user: int, uuid_contest: str):
         contest = await self.__repo.get_contest_by_uuid(uuid_contest)
         await self.__repo.delete_user_in_contest(id_user, contest.id)
+
+    async def get_contest_controller(self, uuid_contest: str):
+        contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        return ContestUserAndTask.model_validate(contest, from_attributes=True)

@@ -132,8 +132,8 @@ async def create_contest_context():
 
 
 async def main():
-    #await create_model()
-    #await create_contest_context()
+    await create_model()
+    await create_contest_context()
     await create_task_context()
 
 

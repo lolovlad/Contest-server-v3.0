@@ -34,6 +34,7 @@ class ContestsRepository:
     async def get_list_report_total(self, id_contest: int) -> dict:
         response = await self.__client.get(f"contest/get_report/{id_contest}")
         result = loads(response.text)
+        result = loads(result["message"])
         return {key: TotalContest(**result[key]) for key in result}
 
     async def set_id_users(self, id_contest) -> List[int]:
@@ -131,10 +132,10 @@ class ContestsRepository:
             self.__session.add(contest_reg)
         await self.__session.commit()
 
-    async def get_contest_registration(self, id_user: int) -> list[ContestRegistration]:
+    async def get_contest_registration(self, id_user: int) -> list:
         query = select(ContestRegistration).where(ContestRegistration.id_user == id_user)
         response = await self.__session.execute(query)
-        return response.scalars().all()
+        return response.unique().scalars().all()
 
     async def get_type_contest(self) -> list[TypeContest]:
         query = select(TypeContest)
