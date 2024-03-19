@@ -30,7 +30,7 @@ services:
       - default
 
   pgadmin:
-    container_name: pgadmin_document
+    container_name: pgadmin_agu_review
     image: dpage/pgadmin4
     restart: always
     depends_on:

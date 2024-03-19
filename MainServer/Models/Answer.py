@@ -19,7 +19,7 @@ class AnswerGet(BaseModel):
 
 
 class AnswerView(BaseModel):
-    date_send: str
+    date_send: datetime
     id: int
     name_user: str
     name_task: str

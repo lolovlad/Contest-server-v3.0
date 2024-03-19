@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from .Api import router
 from .settings import settings
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_utils.tasks import repeat_every
+from fastapi_utilities import repeat_every
 from MainServer.async_database import async_session
 from .tables import Contest, StateContest
 from sqlalchemy import select
