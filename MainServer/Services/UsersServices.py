@@ -127,19 +127,34 @@ class UsersServices:
         list_type_user = await self.__repo.get_list_type_user()
         return [TypeUser.model_validate(i, from_attributes=True) for i in list_type_user]
 
-    async def get_list_task_flag_contest(self, uuid_contest: str, num_page: int) -> list[UserToContest]:
-        offset = (num_page - 1) * self.__count_item
-        entity = await self.__repo.get_list_user_by_user_type(offset, self.__count_item, "user")
+    async def get_list_task_flag_contest(self, uuid_contest: str) -> list[UserToContest]:
         contest = await self.__repo_contest.get_contest_by_uuid(uuid_contest)
 
         list_user_to_contest = []
-        for user in entity:
-            in_contest = await self.__repo.check_user_in_contest(user.id, contest.id)
+        for user in contest.users:
             list_user_to_contest.append(
                 UserToContest(
                     user=UserGet.model_validate(user, from_attributes=True),
-                    in_contest=in_contest
+                    in_contest=True
                 )
             )
 
         return list_user_to_contest
+
+    async def get_user_by_search_filed(self, search_field, count) -> list[UserGet]:
+        data_field = search_field.split(" ")
+        surname, name, patronymic = "", "", ""
+        if len(data_field) > 0:
+            surname = data_field[0]
+        if len(data_field) > 1:
+            name = data_field[1]
+        if len(data_field) > 2:
+            patronymic = data_field[2]
+        users_entity = await self.__repo.get_users_by_search_field(
+            surname,
+            name,
+            patronymic,
+            count
+        )
+        users = [UserGet.model_validate(entity, from_attributes=True) for entity in users_entity]
+        return users

@@ -93,3 +93,16 @@ class UserRepository:
         entity = response.unique().scalars().one_or_none()
         return entity != None
 
+    async def get_users_by_search_field(self,
+                                        surname: str,
+                                        name: str,
+                                        patronymic: str,
+                                        count: int) -> list[User]:
+        response = (select(User).join(TypeUser).where(TypeUser.name != "admin")
+                    .where(and_(
+            User.sename.ilike(f'%{surname}%'),
+            User.name.ilike(f'%{name}%'),
+            User.secondname.ilike(f'%{patronymic}%')
+        )).limit(count).order_by(User.id))
+        result = await self.__session.execute(response)
+        return result.scalars().all()

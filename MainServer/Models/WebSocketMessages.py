@@ -1,25 +1,27 @@
 from pydantic import BaseModel
-from fastapi import WebSocket
 from enum import Enum
 from typing import List
+from .User import UserGet
+
+
+class TypePool(str, Enum):
+    ANSWER = "answer"
+    TABLE = "table"
 
 
 class TypeMessage(str, Enum):
-    GET_SELECT_TASK = "get_select_task"
-    GET_CONTEST = "get_contest"
-    GET_LIST_TASK = "get_list_task"
-    UPDATE_ANSWER = "update_answer"
-    POTS_ANSWER = "post_answer"
-    GET_LIST_ANSWER = "get_list_answer"
-    GET_REPORT = "get_report"
-    CLOSER_CONTEST = "close"
+    SUBSCRIBE_TABLE = "subscribe_table"
+    SUBSCRIBE_ANSWER = "subscribe_answer"
+    ANSWER_UPDATE = "answer_update"
+    UNSUBSCRIBE_TABLE = "unsubscribe_table"
+    UNSUBSCRIBE_ANSWER = "unsubscribe_answer"
 
 
 class User(BaseModel):
-    token: str
+    user: UserGet | None
     websocket: object
 
 
 class BaseMessage(BaseModel):
-    message: TypeMessage
+    type_message: TypeMessage
     body_message: dict

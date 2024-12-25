@@ -118,16 +118,19 @@ class ContestsServices:
     async def get_list_contest_by_user_id(self, id_user: int) -> list[ContestUserMenu]:
         contests_reg = await self.__repo.get_contest_registration(id_user)
         card_view = []
+
         for contest_registration in contests_reg:
             is_view = True
 
             if contest_registration.state_contest == StateUser.BANNED:
                 is_view = False
 
-            if contest_registration.contest.state_contest.name != "passes":
+            contest = await self.__repo.get_contest(contest_registration.id_contest)
+
+            if contest.state_contest.name != "passes":
                 is_view = False
 
-            contest_model = ContestCardView.model_validate(contest_registration.contest, from_attributes=True)
+            contest_model = ContestCardView.model_validate(contest, from_attributes=True)
             card_view.append(ContestUserMenu(
                 contest=contest_model,
                 is_view=is_view
@@ -140,34 +143,19 @@ class ContestsServices:
         set_id = await self.__repo.set_id_users(contest.id)
 
         reports = ResultContest()
-        result = await self.__repo.get_list_report_total(contest.id)
+        table_result = await self.__repo.get_list_report_total(contest.id)
 
         reports.name_contest = contest.name_contest
         reports.type_contest = contest.type
         reports.count_user = len(set_id)
         reports.count_task = len(contest.tasks)
 
-        for id_entity in set_id:
-            name = ""
-            user = await self.__user_repo.get_user(id_entity)
-            name = f"{user.sename} {user.name[0]}. {user.secondname[0]}."
+        rows = []
 
-            if str(id_entity) not in result:
-                reports.users.append({
-                    "name": name,
-                    "total": {str(entity.id): 0 for entity in contest.tasks},
-                    "sum_point": 0
-                })
-            else:
-                target_res: TotalContest = result[str(id_entity)]
-                for task in contest.tasks:
-                    if str(task.id) not in target_res.total:
-                        target_res.total[str(task.id)] = 0
-                target_res.name = name
-                target_res_dict = target_res.dict()
-                target_res_dict.pop("name_contest")
-                reports.users.append(target_res_dict)
-        reports.users = list(sorted(reports.users, key=lambda i: i["sum_point"], reverse=True))
+        for id_user in table_result:
+            table_result[id_user]["sum_point"] = sum(i["points"] for i in table_result[id_user]['task'].values())
+            rows.append(table_result[id_user])
+        reports.rows = list(sorted(rows, key=lambda i: i["sum_point"], reverse=True))
         return reports
 
     async def update_state_user_contest(self, uuid_contest: str, id_user: int):
@@ -186,19 +174,57 @@ class ContestsServices:
         contest = await self.__repo.get_contest_by_uuid(uuid_contest)
         task = await self.__task_repo.get_by_uuid(uuid_task)
         await self.__repo.add_task_to_contest(task.id, contest.id)
+        table = contest.table_result
+        if len(table) != 0:
+            for id_user in table:
+                table[str(id_user)]["task"][str(task.id)] = {
+                    "name": task.name_task,
+                    "total": "-",
+                    "points": 0
+                }
+        await self.__repo.update_contest_table_result(contest, table)
 
     async def delete_task_in_contest(self, uuid_task: str, uuid_contest: str):
         contest = await self.__repo.get_contest_by_uuid(uuid_contest)
         task = await self.__task_repo.get_by_uuid(uuid_task)
         await self.__repo.delete_task_in_contest(task.id, contest.id)
 
+        table = contest.table_result
+        if len(table) != 0:
+            for id_user in table:
+                del table[str(id_user)]["task"][str(task.id)]
+
+        await self.__repo.update_contest_table_result(contest, table)
+
     async def registrate_user_in_contest(self, id_user: int, uuid_contest: str):
         contest = await self.__repo.get_contest_by_uuid(uuid_contest)
+        user = await self.__user_repo.get_user(id_user)
         await self.__repo.add_user_to_contest(id_user, contest.id)
+        task = {}
+        table = contest.table_result
+        for task_model in contest.tasks:
+            task[int(task_model.id)] = {
+                "name": task_model.name_task,
+                "total": "-",
+                "points": 0
+            }
+
+        table[int(id_user)] = {
+            "FIO": f"{user.sename} {user.name} {user.secondname}",
+            "task": task
+        }
+
+        await self.__repo.update_contest_table_result(contest, table)
 
     async def delete_user_in_contest(self, id_user: int, uuid_contest: str):
         contest = await self.__repo.get_contest_by_uuid(uuid_contest)
         await self.__repo.delete_user_in_contest(id_user, contest.id)
+        table = contest.table_result
+        try:
+            del table[str(id_user)]
+        except KeyError:
+            del table[int(id_user)]
+        await self.__repo.update_contest_table_result(contest, table)
 
     async def get_contest_controller(self, uuid_contest: str):
         contest = await self.__repo.get_contest_by_uuid(uuid_contest)

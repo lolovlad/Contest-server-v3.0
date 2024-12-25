@@ -45,19 +45,26 @@ class MainViewContestService:
 
     async def get_list_task(self, uuid_contest: str, id_user: int) -> List[TaskViewUser]:
         contest = await self.__contest_repository.get_contest_by_uuid(uuid_contest)
-        answers = await self.__answer_repository.get_list_answers_by_id_contest(contest.id, id_user)
 
-        answers = {entity.id_task: (entity.total, entity.points) for entity in answers}
-        tasks = [TaskViewUser.model_validate(obj, from_attributes=True) for obj in contest.tasks]
+        row = await self.__answer_repository.get_row_by_id_contest(contest.id, id_user)
 
-        for task in tasks:
-            if task.id in answers:
-                if answers[task.id][0] == "OK" or int(answers[task.id][1]) > 0:
-                    task.last_answer = str(answers[task.id][1])
+        tasks = {str(obj.id): [obj.uuid, obj.complexity] for obj in contest.tasks}
+
+        response = []
+
+        for id_task, answer in row["task"].items():
+            la = "-"
+            if answer["total"] != "-":
+                if answer["points"] == 0:
+                    la = answer["total"]
                 else:
-                    task.last_answer = str(answers[task.id][0])
+                    la = answer["points"]
+            response.append(TaskViewUser(uuid=str(tasks[id_task][0]),
+                                         name_task=answer["name"],
+                                         complexity=tasks[id_task][1],
+                                         last_answer=str(la)))
 
-        return tasks
+        return response
 
     async def get_task(self, uuid: str) -> TaskAndTest:
         task_data = await self.__task_repository.get_by_uuid(uuid)
@@ -158,3 +165,8 @@ class MainViewContestService:
             user_id,
             0,
             text)
+
+    async def get_contest_and_task_uuid(self, id_contest: int, id_task: int) -> (str, str):
+        contest = await self.__contest_repository.get_contest(id_contest)
+        task = await self.__task_repository.get(id_task)
+        return str(contest.uuid), str(task.uuid)

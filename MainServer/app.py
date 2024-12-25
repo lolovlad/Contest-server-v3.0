@@ -17,6 +17,7 @@ app.include_router(router)
 origins = [
     f"http://{settings.front_end_host}:{settings.front_end_port}",
     f"http://{settings.front_end_host}",
+    f"http://localhost:8080"
 ]
 
 app.add_middleware(

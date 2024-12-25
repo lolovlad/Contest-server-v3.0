@@ -7,6 +7,7 @@ from ..Api.tasks import router as task_router
 from ..Api.user_contest_view import router as user_contest_view_router
 from ..Api.compilations import router as compilations_router
 from ..Api.answer import router as answer_router
+from .websocket import router as websocket_router
 
 
 router = APIRouter()
@@ -18,3 +19,4 @@ router.include_router(task_router)
 router.include_router(user_contest_view_router)
 router.include_router(compilations_router)
 router.include_router(answer_router)
+router.include_router(websocket_router)

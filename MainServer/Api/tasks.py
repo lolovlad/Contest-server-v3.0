@@ -129,11 +129,14 @@ async def delete_file(filename: str,
 
 
 @router.get("/task_flag_contest/{uuid_contest}", response_model=list[TaskToContest])
-async def task_flag_contest(response: Response,
-                            uuid_contest: str,
-                            num_page: int = 1,
+async def task_flag_contest(uuid_contest: str,
                             task_services: TaskServices = Depends()):
-    count_page = await task_services.get_count_page()
-    response.headers["X-Count-Page"] = str(count_page)
-    response.headers["X-Count-Item"] = str(task_services.count_item)
-    return await task_services.get_list_task_flag_contest(uuid_contest, num_page)
+    return await task_services.get_list_task_flag_contest(uuid_contest)
+
+
+@router.get('/get/search', response_model=List[TaskGetView])
+async def get_task_search(search_field: str,
+                          count: int = 5,
+                          task_services: TaskServices = Depends()):
+    list_task = await task_services.get_task_by_search_filed(search_field, count)
+    return list_task

@@ -89,7 +89,6 @@ class ContestRegistration(base):
     id_user = Column(ForeignKey('user.id'), primary_key=True)
     id_contest = Column(ForeignKey('contest.id'), primary_key=True)
     state_contest = Column(Integer, nullable=False, default=1)
-    contest = relationship("Contest", lazy="joined")
 
 
 class TypeContest(base):
@@ -123,8 +122,10 @@ class Contest(base):
     id_state_contest = Column(Integer, ForeignKey("state_contest.id"))
     state_contest = relationship("StateContest", lazy="joined")
 
-    users = relationship("User", lazy="joined", cascade="all, delete", secondary="contest_registration")
-    tasks = relationship("Task", lazy="joined", cascade="all, delete", secondary="contest_to_task")
+    users = relationship("User", lazy="joined", secondary="contest_registration")
+    tasks = relationship("Task", lazy="joined", secondary="contest_to_task")
+
+    table_result = Column(MutableDict.as_mutable(JSONB), nullable=True, default={})
 
 
 class TypeTask(base):

@@ -6,7 +6,6 @@ from datetime import datetime
 class AnswerGet(BaseModel):
     date_send: datetime
     id: int
-    id_team: int
     id_user: int
     id_task: int
     id_contest: int

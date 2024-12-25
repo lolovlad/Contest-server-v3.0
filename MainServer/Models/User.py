@@ -27,7 +27,7 @@ class UserBase(BaseModel):
     secondname: str
     foto: str = "Photo/default.png"
     stage_edu: str = None
-    data: dict = {}
+    data: dict | None = {}
 
 
 class UserGet(UserBase):
@@ -43,9 +43,9 @@ class UserPost(UserBase):
 
 
 class UserUpdate(UserBase):
-    password: str
-    id_type: int
-    id_edu_organization: str
+    password: str | None
+    id_type: int | None
+    id_edu_organization: str| None
 
 
 class UserGetInTeam(BaseModel):

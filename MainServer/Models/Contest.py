@@ -93,7 +93,7 @@ class ResultContest(BaseModel):
     type_contest: TypeContest = 1
     count_user: int = 0,
     count_task: int = 0,
-    users: List[dict] = []
+    rows: list[dict] = []
 
 
 class ContestToTask(BaseModel):

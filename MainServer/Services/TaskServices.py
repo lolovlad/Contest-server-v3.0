@@ -94,20 +94,24 @@ class TaskServices:
         folder_name = PathExtend(f"Task_Id_{id_task}")
         folder_name.delete_dir()
 
-    async def get_list_task_flag_contest(self, uuid_contest: str, num_page: int) -> list[TaskToContest]:
-        offset = (num_page - 1) * self.__count_item
-        entity = await self.__repo.get_list_task(offset, self.__count_item)
-
+    async def get_list_task_flag_contest(self, uuid_contest: str) -> list[TaskToContest]:
         contest = await self.__repo_contest.get_contest_by_uuid(uuid_contest)
-
         list_task_to_contest = []
-        for task in entity:
-            in_contest = await self.__repo.check_task_in_contest(task.id, contest.id)
+        for task in contest.tasks:
             list_task_to_contest.append(
                 TaskToContest(
                     task=TaskGetView.model_validate(task, from_attributes=True),
-                    in_contest=in_contest
+                    in_contest=True
                 )
             )
 
         return list_task_to_contest
+
+    async def get_task_by_search_filed(self, search_field, count) -> list[TaskGetView]:
+        data_field = search_field
+        task_entity = await self.__repo.get_tasks_by_search_field(
+            data_field,
+            count
+        )
+        tasks = [TaskGetView.model_validate(entity, from_attributes=True) for entity in task_entity]
+        return tasks

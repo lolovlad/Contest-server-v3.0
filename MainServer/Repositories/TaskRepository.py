@@ -149,3 +149,10 @@ class TaskRepository:
         response = await self.__session.execute(query)
         entity = response.scalars().one_or_none()
         return entity != None
+
+    async def get_tasks_by_search_field(self,
+                                        name: str,
+                                        count: int) -> list[Task]:
+        response = select(Task).where(Task.name_task.ilike(f'%{name}%')).limit(count).order_by(Task.id)
+        result = await self.__session.execute(response)
+        return result.scalars().all()

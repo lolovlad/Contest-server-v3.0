@@ -76,9 +76,16 @@ async def get_type_user(user_services: UsersServices = Depends()):
 @router.get("/user_flag_contest/{uuid_contest}", response_model=list[UserToContest])
 async def user_flag_contest(response: Response,
                             uuid_contest: str,
-                            num_page: int = 1,
                             user_services: UsersServices = Depends()):
     count_page = await user_services.get_count_page()
     response.headers["X-Count-Page"] = str(count_page)
     response.headers["X-Count-Item"] = str(user_services.count_item)
-    return await user_services.get_list_task_flag_contest(uuid_contest, num_page)
+    return await user_services.get_list_task_flag_contest(uuid_contest)
+
+
+@router.get('/get/search', response_model=List[UserGet])
+async def get_users_search(search_field: str,
+                           count: int = 5,
+                           user_services: UsersServices = Depends()):
+    list_user = await user_services.get_user_by_search_filed(search_field, count)
+    return list_user

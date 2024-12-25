@@ -85,9 +85,9 @@ class TaskGetView(BaseGetTask):
     type_task: TypeTask
 
 
-class TaskViewUser(TaskGetView):
-    id: int
+class TaskViewUser(BaseGetTask):
     last_answer: str = "-"
+
 
 class GetListTaskViewUser(BaseModel):
     list_task: List[TaskViewUser]

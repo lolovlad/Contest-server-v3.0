@@ -1,6 +1,7 @@
 from httpx import AsyncClient
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import select, func, and_
 from ..tables import Contest, ContestRegistration, TypeContest, StateContest, ContestToTask
 
@@ -13,13 +14,17 @@ from typing import List
 from ..async_database import get_session
 from json import loads
 
+from .TableRepository import TableRepository
+
 
 class ContestsRepository:
     def __init__(self,
                  client: AsyncClient = Depends(get_channel),
-                 session: AsyncSession = Depends(get_session)):
+                 session: AsyncSession = Depends(get_session),
+                 repo_table: TableRepository = Depends()):
         self.__client: AsyncClient = client
         self.__session: AsyncSession = session
+        self.__repo_table: TableRepository = repo_table
 
     async def count_row(self) -> int:
         response = select(func.count(Contest.id))
@@ -32,10 +37,8 @@ class ContestsRepository:
         return result.scalars().all()
 
     async def get_list_report_total(self, id_contest: int) -> dict:
-        response = await self.__client.get(f"contest/get_report/{id_contest}")
-        result = loads(response.text)
-        result = loads(result["message"])
-        return {key: TotalContest(**result[key]) for key in result}
+        response = await self.__client.get(f"table/all/{id_contest}")
+        return response.json()['table']
 
     async def set_id_users(self, id_contest) -> List[int]:
         response = select(ContestRegistration.id_user).\
@@ -54,7 +57,7 @@ class ContestsRepository:
 
     async def get_contest(self, id_contest: int) -> Contest:
         result = await self.__session.get(Contest, id_contest)
-        return result.scalars()
+        return result
 
     async def update_user_state_contest(self,
                                         id_contest: int,
@@ -179,7 +182,21 @@ class ContestsRepository:
             await self.__session.rollback()
             raise Exception
 
+    async def get_user_to_contest(self, id_user: int, id_contest: int) -> ContestRegistration | None:
+        query = select(ContestRegistration).where(
+            and_(
+                ContestRegistration.id_user == id_user,
+                ContestRegistration.id_contest == id_contest
+            )
+        )
+        response = await self.__session.execute(query)
+        entity = response.scalars().first()
+        return entity
+
     async def add_user_to_contest(self, id_user: int, id_contest: int):
+        entity = await self.get_user_to_contest(id_user, id_contest)
+        if entity is not None:
+            return
         try:
             self.__session.add(ContestRegistration(
                 id_contest=id_contest,
@@ -192,17 +209,22 @@ class ContestsRepository:
             raise Exception
 
     async def delete_user_in_contest(self, id_user: int, id_contest: int):
-        query = select(ContestRegistration).where(
-            and_(
-                ContestRegistration.id_user == id_user,
-                ContestRegistration.id_contest == id_contest
-            )
-        )
-        response = await self.__session.execute(query)
-        entity = response.scalars().first()
+        entity = await self.get_user_to_contest(id_user, id_contest)
         try:
             await self.__session.delete(entity)
             await self.__session.commit()
         except:
             await self.__session.rollback()
             raise Exception
+
+    async def update_contest_table_result(self, contest: Contest, table: dict):
+        contest.table_result = table
+        flag_modified(contest, "table_result")
+        #try:
+        self.__session.add(contest)
+        await self.__session.commit()
+        await self.__repo_table.save_table(int(contest.id), table)
+        #except:
+        #    await self.__session.rollback()
+        #    raise Exception
+

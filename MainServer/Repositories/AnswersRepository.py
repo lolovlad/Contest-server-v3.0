@@ -13,12 +13,10 @@ class AnswersRepository:
     def __init__(self, client: AsyncClient = Depends(get_channel)):
         self.__client: AsyncClient = client
 
-    async def get_list_answers_by_id_contest(self, id_contest: int, id_user: int) -> List[AnswerGet]:
-        response = await self.__client.get(f"answer/list_answer_contest/{id_contest}", params={
-            "id_user": id_user
-        })
+    async def get_row_by_id_contest(self, id_contest: int, id_user: int) -> dict:
+        response = await self.__client.get(f"table/{id_contest}/{id_user}")
 
-        return [AnswerGet.model_validate(obj) for obj in response.json()]
+        return response.json()["row"]
 
     async def post_answer(self,
                           id_contest: int,
